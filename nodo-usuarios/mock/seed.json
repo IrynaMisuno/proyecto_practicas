@@ -1,0 +1,15 @@
+{
+  "users": [
+    { "id": "usr-101", "name": "Lucía Fernández", "email": "lucia.fernandez@nodo.local", "username": "luciaf", "department": "Operaciones", "roleId": "role-admin", "status": "active" },
+    { "id": "usr-102", "name": "Mateo Ruiz", "email": "mateo.ruiz@nodo.local", "username": "mateor", "department": "Producto", "roleId": "role-editor", "status": "active" },
+    { "id": "usr-103", "name": "Inés Martín", "email": "ines.martin@nodo.local", "username": "inesm", "department": "Atención al cliente", "roleId": "role-support", "status": "invited" },
+    { "id": "usr-delete-test", "name": "Usuario temporal", "email": "delete.test@nodo.local", "username": "delete-test", "department": "Pruebas", "roleId": "role-reader", "status": "active" }
+  ],
+  "roles": [
+    { "id": "role-admin", "name": "Administrador", "description": "Acceso completo a la plataforma", "tone": "moss" },
+    { "id": "role-editor", "name": "Editor", "description": "Gestiona contenido y equipos", "tone": "coral" },
+    { "id": "role-support", "name": "Soporte", "description": "Atiende solicitudes y consultas", "tone": "gold" },
+    { "id": "role-reader", "name": "Solo lectura", "description": "Consulta información sin editar", "tone": "blue" },
+    { "id": "role-delete-test", "name": "Rol temporal", "description": "Rol sin asignaciones para probar borrado", "tone": "ink" }
+  ]
+}
