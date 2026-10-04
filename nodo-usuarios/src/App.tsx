@@ -1,271 +1,253 @@
-import { useEffect, useState } from "react";
-import {
-  ArrowDownUp,
-  BadgeCheck,
-  ChevronDown,
-  CircleHelp,
-  Ellipsis,
-  KeyRound,
-  LayoutDashboard,
-  Pencil,
-  Plus,
-  Search,
-  ShieldCheck,
-  Trash2,
-  UserRoundPlus,
-  Users,
-} from "lucide-react";
-import { AccessDialog } from "./components/AccessDialog";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LoaderCircle, LogOut, ShieldCheck, Users } from "lucide-react";
+import { useAuth } from "./auth";
+import * as api from "./data";
+import { ConfirmDialog } from "./components/ConfirmDialog";
+import { LoginPage } from "./components/LoginPage";
+import { ForgotPasswordPage, ResetPasswordPage } from "./components/PasswordRecovery";
 import { RoleDialog } from "./components/RoleDialog";
+import { RolesView } from "./components/RolesView";
 import { UserDialog } from "./components/UserDialog";
-import { createRole, createUser, deleteRole, deleteUser, loadRoles, loadUsers, updateRole, updateUser } from "./data";
-import type { Role, RoleDraft, User, UserDraft, UserStatus } from "./types";
+import { UsersView } from "./components/UsersView";
+import { FormError, Toast, buttonStyles, getInitials } from "./components/ui";
+import type { CurrentUser, PermissionInfo, Role, RoleDraft, User, UserDraft } from "./types";
 
 type Section = "users" | "roles";
-type StatusFilter = "all" | UserStatus;
+type PublicPage = { name: "login"; notice?: string } | { name: "forgot" } | { name: "reset"; token: string };
 
-const statusLabels: Record<UserStatus, string> = {
-  active: "Activo",
-  invited: "Invitado",
-  suspended: "Suspendido",
-};
+const RESET_PATH = "/restablecer-contrasena";
 
-function getInitials(name: string): string {
-  return name.split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase();
+function initialPublicPage(): PublicPage {
+  if (window.location.pathname !== RESET_PATH) return { name: "login" };
+  // El token llega en el fragmento (#token=...). Se guarda en memoria y se quita de la barra
+  // de direcciones para que no quede en el historial.
+  const token = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
+  window.history.replaceState(null, "", RESET_PATH);
+  return { name: "reset", token };
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+function goTo(path: string) {
+  if (window.location.pathname !== path) window.history.replaceState(null, "", path);
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "No se pudo completar la operación.";
-}
+type DialogState =
+  | { kind: "user"; user?: User }
+  | { kind: "role"; role?: Role }
+  | { kind: "delete-user"; user: User }
+  | { kind: "delete-role"; role: Role }
+  | null;
 
 export default function App() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [apiState, setApiState] = useState<"loading" | "connected" | "offline">("loading");
-  const [section, setSection] = useState<Section>("users");
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [sortAscending, setSortAscending] = useState(true);
-  const [userDialog, setUserDialog] = useState<User | null | false>(false);
-  const [roleDialog, setRoleDialog] = useState<Role | null | false>(false);
-  const [accessOpen, setAccessOpen] = useState(false);
-  const [notice, setNotice] = useState("");
+  const { user, loading, logout, sessionExpired } = useAuth();
+  const [page, setPage] = useState<PublicPage>(initialPublicPage);
 
-  async function refreshData() {
-    setApiState("loading");
-    try {
-      const [loadedUsers, loadedRoles] = await Promise.all([loadUsers(), loadRoles()]);
-      setUsers(loadedUsers);
-      setRoles(loadedRoles);
-      setApiState("connected");
-    } catch {
-      setApiState("offline");
-    }
-  }
-
-  useEffect(() => {
-    void refreshData();
+  const showLogin = useCallback((notice?: string) => {
+    goTo("/");
+    setPage({ name: "login", notice });
   }, []);
 
-  const activeCount = users.filter((user) => user.status === "active").length;
-  const invitedCount = users.filter((user) => user.status === "invited").length;
-  const filteredUsers = users
-    .filter((user) => {
-      const searchText = `${user.name} ${user.email} ${user.username} ${user.department}`.toLowerCase();
-      return searchText.includes(query.trim().toLowerCase())
-        && (statusFilter === "all" || user.status === statusFilter)
-        && (roleFilter === "all" || user.roleId === roleFilter);
-    })
-    .sort((first, second) => first.name.localeCompare(second.name, "es") * (sortAscending ? 1 : -1));
+  if (loading) {
+    return <div className="grid min-h-screen place-items-center text-slate-400"><LoaderCircle className="animate-spin" aria-label="Cargando" /></div>;
+  }
+  // Un enlace de recuperación se atiende aunque haya una sesión abierta en este navegador.
+  if (page.name === "reset") {
+    return (
+      <ResetPasswordPage
+        token={page.token}
+        onBack={() => showLogin()}
+        onDone={(message) => {
+          void logout();
+          showLogin(message);
+        }}
+      />
+    );
+  }
+  if (user) return <Dashboard currentUser={user} />;
+  if (page.name === "forgot") return <ForgotPasswordPage onBack={() => showLogin()} />;
+  const notice = page.notice ?? (sessionExpired ? "Tu sesión ha caducado. Vuelve a iniciar sesión; los últimos cambios no se han guardado." : undefined);
+  return <LoginPage notice={notice} noticeTone={page.notice ? "success" : "warning"} onForgotPassword={() => setPage({ name: "forgot" })} />;
+}
+
+function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
+  const { can, logout, refresh } = useAuth();
+  const canReadUsers = can("users:read");
+  const canReadRoles = can("roles:read");
+  const sections = [
+    ...(canReadUsers ? [{ id: "users" as const, label: "Usuarios", icon: Users }] : []),
+    ...(canReadRoles ? [{ id: "roles" as const, label: "Roles", icon: ShieldCheck }] : []),
+  ];
+
+  const [section, setSection] = useState<Section>(canReadUsers ? "users" : "roles");
+  const [users, setUsers] = useState<User[] | null>(null);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [permissions, setPermissions] = useState<PermissionInfo[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const [notice, setNotice] = useState("");
+  const noticeTimer = useRef<number | undefined>(undefined);
+
+  const activeSection = sections.some((item) => item.id === section) ? section : sections[0]?.id;
+
+  const loadData = useCallback(async () => {
+    setLoadError("");
+    try {
+      const [loadedUsers, loadedRoles, loadedPermissions] = await Promise.all([
+        canReadUsers ? api.loadUsers() : Promise.resolve(null),
+        api.loadRoles(),
+        api.loadPermissions(),
+      ]);
+      setUsers(loadedUsers);
+      setRoles(loadedRoles);
+      setPermissions(loadedPermissions);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "No se pudieron cargar los datos.");
+    }
+  }, [canReadUsers]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   function announce(message: string) {
+    window.clearTimeout(noticeTimer.current);
     setNotice(message);
-    window.setTimeout(() => setNotice(""), 3200);
+    noticeTimer.current = window.setTimeout(() => setNotice(""), 3500);
   }
 
-  async function saveUser(draft: UserDraft, userId?: string, password?: string) {
-    const duplicateEmail = users.some((user) => user.email.toLowerCase() === draft.email.toLowerCase() && user.id !== userId);
-    const duplicateUsername = users.some((user) => user.username.toLowerCase() === draft.username.toLowerCase() && user.id !== userId);
-    if (duplicateEmail || duplicateUsername) {
-      announce(duplicateEmail ? "Ese correo ya pertenece a otro usuario." : "Ese nombre de usuario ya está en uso.");
-      return;
+  const closeDialog = useCallback(() => setDialog(null), []);
+
+  async function saveUser(draft: UserDraft, existing?: User) {
+    if (existing) {
+      const updated = await api.updateUser(existing.id, draft);
+      setUsers((current) => current?.map((item) => item.id === updated.id ? updated : item) ?? null);
+      // Si me cambio a mí mismo el rol, mis permisos cambian.
+      if (existing.id === currentUser.id) await refresh();
+      announce("Usuario actualizado.");
+    } else {
+      const created = await api.createUser(draft);
+      setUsers((current) => [...(current ?? []), created].sort((a, b) => a.name.localeCompare(b.name, "es")));
+      announce("Usuario creado.");
     }
-    try {
-      if (userId) {
-        const updated = await updateUser(userId, draft);
-        setUsers((current) => current.map((user) => user.id === userId ? updated : user));
-        announce("Cambios del usuario guardados.");
-      } else {
-        const created = await createUser(draft, password ?? "");
-        setUsers((current) => [{ ...created, updatedAt: created.updatedAt || new Date().toISOString() }, ...current]);
-        announce("Usuario creado correctamente.");
-      }
-      setUserDialog(false);
-    } catch (error) {
-      announce(getErrorMessage(error));
-    }
+    setDialog(null);
   }
 
-  async function removeUser(user: User) {
-    if (!window.confirm(`¿Eliminar a ${user.name}? Esta acción no se puede deshacer.`)) return;
-    try {
-      await deleteUser(user.id);
-      setUsers((current) => current.filter((item) => item.id !== user.id));
-      announce("Usuario eliminado.");
-    } catch (error) {
-      announce(getErrorMessage(error));
+  async function saveRole(draft: RoleDraft, existing?: Role) {
+    if (existing) {
+      const updated = await api.updateRole(existing.id, draft);
+      setRoles((current) => current.map((item) => item.id === updated.id ? updated : item));
+      if (existing.id === currentUser.role_id) await refresh();
+      announce("Rol actualizado.");
+    } else {
+      const created = await api.createRole(draft);
+      setRoles((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, "es")));
+      announce("Rol creado.");
     }
+    setDialog(null);
   }
-
-  async function saveRole(draft: RoleDraft, roleId?: string) {
-    const duplicateName = roles.some((role) => role.name.toLowerCase() === draft.name.toLowerCase() && role.id !== roleId);
-    if (duplicateName) {
-      announce("Ya existe un rol con ese nombre.");
-      return;
-    }
-    try {
-      if (roleId) {
-        const updated = await updateRole(roleId, draft);
-        setRoles((current) => current.map((role) => role.id === roleId ? updated : role));
-        announce("Cambios del rol guardados.");
-      } else {
-        const created = await createRole(draft);
-        setRoles((current) => [...current, created]);
-        announce("Rol creado correctamente.");
-      }
-      setRoleDialog(false);
-    } catch (error) {
-      announce(getErrorMessage(error));
-    }
-  }
-
-  async function removeRole(role: Role) {
-    const assignedCount = users.filter((user) => user.roleId === role.id).length;
-    if (assignedCount > 0 || roles.length <= 1) return;
-    if (!window.confirm(`¿Eliminar el rol «${role.name}»?`)) return;
-    try {
-      await deleteRole(role.id);
-      setRoles((current) => current.filter((item) => item.id !== role.id));
-      if (roleFilter === role.id) setRoleFilter("all");
-      announce("Rol eliminado.");
-    } catch (error) {
-      announce(getErrorMessage(error));
-    }
-  }
-
-  const currentTitle = section === "users" ? "Usuarios" : "Roles y permisos";
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <a className="brand" href="#inicio" aria-label="Nodo, inicio">
-          <span className="brand-mark"><span /></span><span className="brand-name">nodo<span>.</span></span>
-        </a>
-        <div className="workspace-switcher">
-          <span className="workspace-avatar">N</span><span className="workspace-meta"><strong>Northstar Studio</strong><small>Espacio de trabajo</small></span><ChevronDown size={15} />
+    <div className="min-h-screen lg:flex">
+      <aside className="border-b border-slate-200 bg-white lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-b-0 lg:border-r">
+        <div className="flex items-center justify-between gap-4 px-4 py-3 lg:px-6 lg:py-5">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">N</span>
+            <span className="text-lg font-semibold tracking-tight">Nodo</span>
+          </div>
+          <button type="button" className={`${buttonStyles.icon} lg:hidden`} aria-label="Cerrar sesión" title="Cerrar sesión" onClick={() => void logout()}><LogOut size={18} /></button>
         </div>
-        <nav className="side-nav" aria-label="Navegación principal">
-          <span className="nav-caption">GESTIÓN</span>
-          <button className="side-link" type="button"><LayoutDashboard size={17} /><span>Resumen</span></button>
-          <button className={`side-link ${section === "users" ? "is-current" : ""}`} type="button" onClick={() => setSection("users")}><Users size={17} /><span>Usuarios</span><span className="nav-count">{users.length}</span></button>
-          <button className={`side-link ${section === "roles" ? "is-current" : ""}`} type="button" onClick={() => setSection("roles")}><ShieldCheck size={17} /><span>Roles y permisos</span></button>
-          <span className="nav-caption nav-caption-lower">SISTEMA</span>
-          <button className="side-link" type="button" onClick={() => setAccessOpen(true)}><KeyRound size={17} /><span>Verificar acceso</span></button>
+        <nav aria-label="Secciones" className="flex gap-1 px-4 pb-3 lg:flex-1 lg:flex-col lg:px-3 lg:pb-0">
+          {sections.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={activeSection === item.id ? "page" : undefined}
+              onClick={() => setSection(item.id)}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeSection === item.id ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}
+            >
+              <item.icon size={18} />
+              {item.label}
+            </button>
+          ))}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-help"><CircleHelp size={17} /><span>Centro de ayuda</span></div>
-          <div className="account-chip"><span className="account-avatar">LF</span><span className="account-meta"><strong>Lucía Fernández</strong><small>Administradora</small></span><Ellipsis size={17} /></div>
+        <div className="hidden border-t border-slate-200 p-4 lg:block">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">{getInitials(currentUser.name)}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-slate-900">{currentUser.name}</p>
+              <p className="truncate text-xs text-slate-500">{currentUser.role_name}</p>
+            </div>
+            <button type="button" className={buttonStyles.icon} aria-label="Cerrar sesión" title="Cerrar sesión" onClick={() => void logout()}><LogOut size={18} /></button>
+          </div>
         </div>
       </aside>
 
-      <div className="main-shell">
-        <header className="topbar">
-          <div className="breadcrumbs"><span>Administración</span><span className="crumb-divider">/</span><strong>{currentTitle}</strong></div>
-          <div className="topbar-actions"><span className="environment-label"><span className={`environment-dot ${apiState === "offline" ? "is-offline" : ""}`} />{apiState === "loading" ? "Conectando API" : apiState === "connected" ? "API local conectada" : "API local desconectada"}</span><button className="button button-outline access-button" type="button" onClick={() => setAccessOpen(true)}><KeyRound size={15} /> Verificar acceso</button></div>
-        </header>
-
-        <main className="page-content">
-          <section className="welcome-row">
-            <div><span className="eyebrow">CONTROL DE IDENTIDAD <span className="eyebrow-line" /></span><h1>{currentTitle}</h1><p className="page-subtitle">Administra quién puede acceder y qué puede hacer en tu espacio.</p></div>
-            <div className="welcome-actions">{section === "users" ? <button className="button button-primary" type="button" disabled={apiState !== "connected"} onClick={() => setUserDialog(null)}><Plus size={17} /> Añadir usuario</button> : <button className="button button-primary" type="button" disabled={apiState !== "connected"} onClick={() => setRoleDialog(null)}><Plus size={17} /> Crear rol</button>}</div>
-          </section>
-
-          {apiState !== "connected" && <div className={`api-banner ${apiState === "offline" ? "is-offline" : ""}`} role={apiState === "offline" ? "alert" : "status"}>
-            <span>{apiState === "loading" ? "Cargando usuarios y roles desde la API local…" : "No hay conexión con el mock. Inicia npm run api:mock para habilitar las operaciones."}</span>
-            {apiState === "offline" && <button className="button button-quiet" type="button" onClick={() => void refreshData()}>Reintentar</button>}
-          </div>}
-
-          <section className="metrics" aria-label="Resumen de usuarios">
-            <div className="metric metric-total"><span className="metric-label">Usuarios registrados</span><strong>{users.length.toString().padStart(2, "0")}</strong><span className="metric-foot"><Users size={14} /> En este espacio</span></div>
-            <div className="metric"><span className="metric-label">Cuentas activas</span><strong>{activeCount.toString().padStart(2, "0")}</strong><span className="metric-foot"><span className="tiny-status is-active" /> {users.length ? Math.round(activeCount / users.length * 100) : 0}% del equipo</span></div>
-            <div className="metric"><span className="metric-label">Invitaciones pendientes</span><strong>{invitedCount.toString().padStart(2, "0")}</strong><span className="metric-foot"><UserRoundPlus size={14} /> Esperando activación</span></div>
-            <div className="metric metric-roles"><span className="metric-label">Roles configurados</span><strong>{roles.length.toString().padStart(2, "0")}</strong><button type="button" className="metric-link" onClick={() => setSection("roles")}>Revisar permisos <span aria-hidden="true">↗</span></button></div>
-          </section>
-
-          <section className="directory-section">
-            <div className="section-heading">
-              <div className="section-tabs" role="tablist" aria-label="Administrar usuarios o roles">
-                <button className={`section-tab ${section === "users" ? "is-selected" : ""}`} type="button" role="tab" aria-selected={section === "users"} onClick={() => setSection("users")}>Directorio <span>{users.length}</span></button>
-                <button className={`section-tab ${section === "roles" ? "is-selected" : ""}`} type="button" role="tab" aria-selected={section === "roles"} onClick={() => setSection("roles")}>Roles <span>{roles.length}</span></button>
-              </div>
-              <span className="updated-caption"><BadgeCheck size={14} /> {apiState === "connected" ? "Sincronizado con la API local" : "Conexión pendiente"}</span>
+      <main className="flex-1 px-4 py-8 sm:px-6 lg:ml-64 lg:px-10">
+        <div className="mx-auto max-w-6xl space-y-6">
+          {loadError && (
+            <div className="flex items-center justify-between gap-4">
+              <FormError message={loadError} />
+              <button type="button" className={buttonStyles.secondary} onClick={() => void loadData()}>Reintentar</button>
             </div>
+          )}
+          {!activeSection && <p className="text-sm text-slate-500">Tu rol no tiene permisos para ver ninguna sección. Contacta con un administrador.</p>}
+          {activeSection === "users" && users && (
+            <UsersView
+              users={users}
+              roles={roles}
+              currentUserId={currentUser.id}
+              canWrite={can("users:write")}
+              onAdd={() => setDialog({ kind: "user" })}
+              onEdit={(user) => setDialog({ kind: "user", user })}
+              onDelete={(user) => setDialog({ kind: "delete-user", user })}
+            />
+          )}
+          {activeSection === "roles" && (
+            <RolesView
+              roles={roles}
+              users={users}
+              permissions={permissions}
+              canWrite={can("roles:write")}
+              onAdd={() => setDialog({ kind: "role" })}
+              onEdit={(role) => setDialog({ kind: "role", role })}
+              onDelete={(role) => setDialog({ kind: "delete-role", role })}
+            />
+          )}
+        </div>
+      </main>
 
-            {section === "users" ? <>
-              <div className="toolbar">
-                <label className="search-field"><Search size={17} /><input aria-label="Buscar usuarios" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, correo o equipo" /></label>
-                <div className="filter-group">
-                  <label className="select-filter"><span className="sr-only">Filtrar por rol</span><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option value="all">Todos los roles</option>{roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select><ChevronDown size={14} /></label>
-                  <label className="select-filter"><span className="sr-only">Filtrar por estado</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}><option value="all">Todos los estados</option><option value="active">Activo</option><option value="invited">Invitado</option><option value="suspended">Suspendido</option></select><ChevronDown size={14} /></label>
-                  <button className="icon-button sort-button" type="button" title="Ordenar por nombre" aria-label={`Ordenar por nombre ${sortAscending ? "descendente" : "ascendente"}`} onClick={() => setSortAscending((current) => !current)}><ArrowDownUp size={16} /></button>
-                </div>
-              </div>
-              <div className="table-wrap">
-                <table className="user-table">
-                  <thead><tr><th><span>PERSONA</span></th><th><span>ROL ASIGNADO</span></th><th><span>EQUIPO</span></th><th><span>ESTADO</span></th><th><span>ÚLTIMA ACTIVIDAD</span></th><th><span className="sr-only">Acciones</span></th></tr></thead>
-                  <tbody>{filteredUsers.map((user) => {
-                    const role = roles.find((item) => item.id === user.roleId);
-                    return <tr key={user.id}>
-                      <td><div className="person-cell"><span className={`person-avatar avatar-${user.id.slice(-1)}`}>{getInitials(user.name)}</span><span className="person-details"><strong>{user.name}</strong><small>{user.email}</small></span></div></td>
-                      <td><span className={`role-pill tone-${role?.tone ?? "ink"}`}><span className="role-dot" />{role?.name ?? "Sin rol"}</span></td>
-                      <td className="department-cell">{user.department}</td>
-                      <td><span className={`status-pill status-${user.status}`}><span />{statusLabels[user.status]}</span></td>
-                      <td className="date-cell">{formatDate(user.updatedAt)}</td>
-                      <td><div className="row-actions"><button className="icon-button" type="button" title="Editar usuario" aria-label={`Editar ${user.name}`} disabled={apiState !== "connected"} onClick={() => setUserDialog(user)}><Pencil size={15} /></button><button className="icon-button danger-action" type="button" title="Eliminar usuario" aria-label={`Eliminar ${user.name}`} disabled={apiState !== "connected"} onClick={() => void removeUser(user)}><Trash2 size={15} /></button></div></td>
-                    </tr>;
-                  })}</tbody>
-                </table>
-                {filteredUsers.length === 0 && <div className="empty-state"><Search size={22} /><strong>No encontramos usuarios</strong><span>Ajusta la búsqueda o los filtros para ver resultados.</span></div>}
-              </div>
-              <div className="table-footer"><span>Mostrando <strong>{filteredUsers.length}</strong> de <strong>{users.length}</strong> usuarios</span><span className="table-foot-note">Actualizado en tiempo real <span className="tiny-status is-active" /></span></div>
-            </> : <div className="roles-area">
-              <div className="roles-intro"><div><h2>Permisos del espacio</h2><p>Define el alcance de cada perfil y asigna roles desde el directorio.</p></div><span className="roles-intro-mark"><ShieldCheck size={23} /></span></div>
-              <div className="role-list">{roles.map((role) => {
-                const assignedCount = users.filter((user) => user.roleId === role.id).length;
-                const deleteDisabled = apiState !== "connected" || assignedCount > 0 || roles.length <= 1;
-                return <article className="role-row" key={role.id}>
-                  <span className={`role-emblem tone-${role.tone}`}><ShieldCheck size={18} /></span>
-                  <div className="role-info"><div className="role-name-line"><h3>{role.name}</h3><span className="role-permission-label">Rol de acceso</span></div><p>{role.description}</p></div>
-                  <div className="role-assignment"><strong>{assignedCount.toString().padStart(2, "0")}</strong><span>{assignedCount === 1 ? "usuario asignado" : "usuarios asignados"}</span></div>
-                  <div className="role-actions"><button className="icon-button" type="button" title="Editar rol" aria-label={`Editar rol ${role.name}`} disabled={apiState !== "connected"} onClick={() => setRoleDialog(role)}><Pencil size={15} /></button><button className="icon-button danger-action" type="button" title={deleteDisabled ? assignedCount ? "No se puede borrar un rol asignado" : roles.length <= 1 ? "Debe existir al menos un rol" : "API local no conectada" : "Eliminar rol"} aria-label={`Eliminar rol ${role.name}`} disabled={deleteDisabled} onClick={() => void removeRole(role)}><Trash2 size={15} /></button></div>
-                </article>;
-              })}{roles.length === 0 && <div className="empty-state role-empty"><ShieldCheck size={22} /><strong>Aún no hay roles</strong><span>Crea un rol para poder asignarlo a los usuarios.</span><button className="button button-primary" type="button" onClick={() => setRoleDialog(null)}><Plus size={16} /> Crear primer rol</button></div>}</div>
-              <div className="permission-note"><KeyRound size={16} /><p><strong>Principio de mínimo acceso.</strong> Asigna solo los permisos necesarios para cada función.</p><button type="button" aria-label="Más información sobre permisos" title="Los permisos efectivos deben validarse también en el servidor"><CircleHelp size={16} /></button></div>
-            </div>}
-          </section>
-          <footer className="page-footer"><span>NODO <span>·</span> CONTROL DE ACCESO</span><span>Modo demostración <span className="tiny-status is-demo" /></span></footer>
-        </main>
-      </div>
-
-      <UserDialog open={userDialog !== false} user={userDialog || undefined} roles={roles} onClose={() => setUserDialog(false)} onSave={saveUser} />
-      <RoleDialog open={roleDialog !== false} role={roleDialog || undefined} onClose={() => setRoleDialog(false)} onSave={saveRole} />
-      <AccessDialog open={accessOpen} onClose={() => setAccessOpen(false)} />
-      {notice && <div className="toast" role="status">{notice}</div>}
+      {dialog?.kind === "user" && (
+        <UserDialog user={dialog.user} roles={roles} isSelf={dialog.user?.id === currentUser.id} onClose={closeDialog} onSubmit={(draft) => saveUser(draft, dialog.user)} />
+      )}
+      {dialog?.kind === "role" && (
+        <RoleDialog role={dialog.role} permissions={permissions} onClose={closeDialog} onSubmit={(draft) => saveRole(draft, dialog.role)} />
+      )}
+      {dialog?.kind === "delete-user" && (
+        <ConfirmDialog
+          title="Eliminar usuario"
+          message={`Se eliminará la cuenta de ${dialog.user.name} (${dialog.user.email}). Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar usuario"
+          onClose={closeDialog}
+          onConfirm={async () => {
+            await api.deleteUser(dialog.user.id);
+            setUsers((current) => current?.filter((item) => item.id !== dialog.user.id) ?? null);
+            announce("Usuario eliminado.");
+          }}
+        />
+      )}
+      {dialog?.kind === "delete-role" && (
+        <ConfirmDialog
+          title="Eliminar rol"
+          message={`Se eliminará el rol «${dialog.role.name}». Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar rol"
+          onClose={closeDialog}
+          onConfirm={async () => {
+            await api.deleteRole(dialog.role.id);
+            setRoles((current) => current.filter((item) => item.id !== dialog.role.id));
+            announce("Rol eliminado.");
+          }}
+        />
+      )}
+      <Toast message={notice} />
     </div>
   );
 }

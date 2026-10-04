@@ -1,206 +1,123 @@
 # Guía del proyecto Nodo
 
-## 1. Propósito y alcance
+## 1. Propósito
 
-Nodo es un panel front-end de demostración para administrar usuarios y roles. Está construido con React y TypeScript; las operaciones de lectura y escritura se envían a una API mock local para que el flujo se pueda probar desde el panel y Thunder Client antes de implementar el backend real.
-
-La API mock no es una solución de producción. El login usa una cuenta fija, el token es ficticio y las comprobaciones de permisos no están protegidas en servidor.
+Nodo es un panel de administración de usuarios. Un usuario inicia sesión con su email y contraseña y, según los permisos de su rol, puede consultar o gestionar usuarios y roles. Los datos se guardan en una base de datos SQLite a través de una API FastAPI.
 
 ## 2. Arquitectura
 
-El recorrido de renderizado es:
+```
+navegador ──► Vite (localhost:5173) ──/api──► FastAPI (127.0.0.1:8000) ──► SQLite (backend/nodo.db)
+```
 
-1. `index.html` declara el documento y el nodo `#root`.
-2. `src/main.tsx` crea la raíz React e importa los estilos globales.
-3. `src/App.tsx` compone el panel, carga usuarios y roles, filtra resultados, controla diálogos y coordina mutaciones.
-4. `src/components/` contiene los formularios de usuario, rol y verificación de acceso.
-5. `src/data.ts` centraliza las llamadas `fetch` a `http://localhost:3001` y traduce errores HTTP a errores utilizables por la interfaz.
-6. `mock/server.cjs` implementa la API de demostración sobre `json-server`; `mock/seed.json` es su conjunto de datos inicial.
-
-La interfaz y la API se ejecutan como procesos distintos. La URL de la API se configura actualmente en la constante `API_BASE_URL` de `src/data.ts`.
+Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la interfaz y la API comparten origen: la cookie de sesión funciona sin CORS y puede ser `SameSite=Strict`. En producción, un proxy inverso (nginx, Caddy…) debe cumplir el mismo papel y servir todo por HTTPS con `COOKIE_SECURE=true`.
 
 ## 3. Organización de archivos
 
+### Backend (`backend/`)
+
 | Ruta | Responsabilidad |
 | --- | --- |
-| `src/App.tsx` | Estado de la aplicación, vistas de usuarios/roles, filtros, validaciones de duplicados, confirmaciones y notificaciones. |
-| `src/types.ts` | Tipos `User`, `Role`, estados, borradores y colores de rol. |
-| `src/data.ts` | Cliente HTTP y funciones para listar, crear, editar, eliminar y verificar acceso. |
-| `src/components/UserDialog.tsx` | Alta y edición de usuarios; pide password solo durante el alta. |
-| `src/components/RoleDialog.tsx` | Alta y edición de roles. |
-| `src/components/AccessDialog.tsx` | Formulario que llama a `POST /auth/login`. |
-| `src/styles.css` | Directivas Tailwind, tokens de marca, componentes con `@apply`, estilos responsive y estados visuales específicos. |
-| `tailwind.config.cjs` | Rutas de escaneo, colores y fuentes extendidos para Tailwind 3. |
-| `postcss.config.cjs` | Integra Tailwind CSS y Autoprefixer en el procesamiento CSS de Vite. |
-| `vite.config.ts` | Configura Vite y el plugin de React. |
-| `mock/server.cjs` | API REST mock, validación/hash de password, login fijo y filtro de hashes en respuestas. |
-| `mock/seed.json` | Usuarios y roles iniciales del entorno de pruebas. |
-| `mock/db.json` | Base mutable generada al iniciar el mock; está excluida de Git. |
-| `thunder/` | Configuración de pruebas manuales en Thunder Client. |
+| `app/main.py` | Crea la app, registra los routers bajo `/api`, crea las tablas, carga la semilla, traduce errores a `{"error", "fields"}` y añade cabeceras de seguridad. |
+| `app/config.py` | Configuración desde `.env` (pydantic-settings). |
+| `app/database.py` | Motor SQLAlchemy, sesiones y claves foráneas activadas en SQLite. |
+| `app/models.py` | Tablas `roles` y `users` y catálogo de permisos. |
+| `app/schemas.py` | Validación de entrada (política de contraseña, email, permisos) y modelos de salida sin datos sensibles. |
+| `app/security.py` | Hash Argon2id, JWT, tokens de recuperación y límites de intentos. |
+| `app/mailer.py` | Envío del correo de recuperación por SMTP, o el enlace en la consola si no hay SMTP. |
+| `app/deps.py` | Usuario actual desde la cookie y `require_permission`. |
+| `app/rules.py` | Regla «siempre debe quedar un administrador activo». |
+| `app/seed.py` | Roles por defecto y primer administrador desde `.env`. |
+| `app/routers/` | Endpoints de autenticación, usuarios y roles. |
+| `tests/` | Pruebas con pytest y una base de datos temporal. |
 
-## 4. Funcionamiento del panel
+### Front-end (`src/`)
 
-### Usuarios
+| Ruta | Responsabilidad |
+| --- | --- |
+| `main.tsx` | Monta la app dentro de `AuthProvider`. |
+| `auth.tsx` | Contexto de sesión: usuario actual, `login`, `logout`, `can(permiso)`. |
+| `data.ts` | Cliente HTTP de `/api`; convierte los errores en `ApiError` y cierra la sesión ante un 401. |
+| `App.tsx` | Pantalla de login o panel; navegación, carga de datos y diálogos. |
+| `components/UsersView.tsx` | Resumen, búsqueda, filtros y tabla de usuarios. |
+| `components/RolesView.tsx` | Tarjetas de roles con sus permisos y usuarios asignados. |
+| `components/UserDialog.tsx`, `RoleDialog.tsx` | Formularios de alta y edición, con los errores del servidor junto a cada campo. |
+| `components/ConfirmDialog.tsx` | Confirmación de borrado. |
+| `components/LoginPage.tsx` | Inicio de sesión con el enlace «¿Has olvidado tu contraseña?». |
+| `components/PasswordRecovery.tsx` | Solicitud del enlace y elección de la contraseña nueva (`/restablecer-contrasena`). |
+| `components/PasswordChecklist.tsx` | Requisitos de contraseña en vivo; la misma política que el backend. |
+| `components/AuthShell.tsx` | Marco común de las pantallas sin sesión. |
+| `components/ui.tsx` | Piezas comunes: estilos de botones y campos, `Modal`, insignias, `Toast`. |
 
-- La pantalla inicial consulta `GET /users` y `GET /roles` en paralelo.
-- El directorio permite buscar por nombre, correo, usuario o equipo; filtrar por rol y estado; y ordenar por nombre.
-- Cada fila permite editar o eliminar. La aplicación confirma antes de borrar.
-- El alta y edición comparten formulario. El campo de password solo se muestra al crear.
-- El panel comprueba duplicados de correo y nombre de usuario antes de enviar la petición.
-- Los errores de red o del mock se presentan como notificaciones; si la API no responde, las acciones se deshabilitan y se ofrece reintentar.
+## 4. Modelo de datos
 
-### Contraseña inicial
+**Role**: `id`, `name` (único), `description`, `tone` (color de la insignia), `permissions` (lista).
 
-Al crear un usuario se exige un password de al menos 8 caracteres que incluya una letra mayúscula, una minúscula, un número y un símbolo. El formulario valida el patrón en el navegador y el mock repite la misma validación en el servidor.
+**User**: `id`, `name`, `email` (único, en minúsculas), `password_hash`, `status` (`active`, `invited`, `suspended`), `role_id`, `created_at`, `updated_at`, `password_changed_at`, `session_version`.
 
-El valor viaja únicamente en el cuerpo del `POST /users`. El mock crea una sal aleatoria y guarda `scrypt$<salt>$<hash>` en `mock/db.json`; el campo en claro se elimina antes de persistir. El cliente no lo incorpora al tipo público `User`, y las respuestas de `/users` quitan `passwordHash` antes de enviarse. No hay flujo de cambio/restablecimiento de contraseña en esta demo.
+**PasswordResetToken**: `id`, `user_id`, `token_hash` (SHA-256 del token), `expires_at`, `used_at`, `created_at`.
 
-### Roles
+Solo los usuarios `active` pueden iniciar sesión. Al arrancar por primera vez se crean tres roles:
 
-- La vista de roles muestra descripción y cantidad de usuarios asignados.
-- Se pueden crear y editar roles, y se comprueba que el nombre no esté repetido.
-- La interfaz impide borrar roles asignados y conserva al menos un rol.
-- Esa protección de borrado existe en el panel, no en el servidor mock; cualquier cliente HTTP directo puede saltársela.
+| Rol | Permisos |
+| --- | --- |
+| Administrador | todos |
+| Gestor | `users:read`, `users:write`, `roles:read` |
+| Lector | `users:read`, `roles:read` |
 
-### Verificación de acceso
+## 5. API
 
-El formulario de acceso llama a `POST /auth/login`. El mock acepta `admin@nodo.local` con `NodoDemo2026!` y responde con un token demostrativo fijo. Este login no consulta los usuarios creados ni verifica el hash que se genera durante las altas.
+Todas las rutas empiezan por `/api`. Salvo el login, todas exigen sesión (401 si no la hay) y las marcadas con un permiso devuelven 403 si el rol no lo tiene.
 
-## 5. Modelo de datos
+| Método | Ruta | Permiso | Uso |
+| --- | --- | --- | --- |
+| `POST` | `/auth/login` | — | `{"email", "password"}`; crea la cookie de sesión. |
+| `POST` | `/auth/logout` | — | Borra la cookie. |
+| `GET` | `/auth/me` | sesión | Usuario actual con su rol y permisos. |
+| `POST` | `/auth/forgot-password` | — | `{"email"}`; responde siempre 202 con el mismo mensaje. |
+| `POST` | `/auth/reset-password` | — | `{"token", "password"}`; 400 si el enlace no es válido o ha caducado. |
+| `GET` | `/users` | `users:read` | Lista de usuarios. |
+| `GET` | `/users/{id}` | `users:read` | Un usuario. |
+| `POST` | `/users` | `users:write` | `{"name", "email", "password", "role_id", "status"}`. |
+| `PATCH` | `/users/{id}` | `users:write` | Cualquier subconjunto de los campos anteriores; `password` es opcional. |
+| `DELETE` | `/users/{id}` | `users:write` | Elimina un usuario. |
+| `GET` | `/roles` | sesión | Lista de roles. |
+| `POST` | `/roles` | `roles:write` | `{"name", "description", "tone", "permissions"}`. |
+| `PATCH` | `/roles/{id}` | `roles:write` | Edita un rol. |
+| `DELETE` | `/roles/{id}` | `roles:write` | Elimina un rol sin usuarios asignados. |
+| `GET` | `/permissions` | sesión | Catálogo de permisos. |
 
-### Usuario público
+Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}}`. Los códigos son: 409 para email o nombre de rol repetido y para las reglas de integridad, 422 para datos no válidos y 429 cuando hay demasiados intentos de login.
 
-```ts
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  username: string;
-  department: string;
-  roleId: string;
-  status: "active" | "invited" | "suspended";
-  updatedAt: string;
-}
-```
+## 6. Seguridad
 
-`password` y `passwordHash` no forman parte del objeto de usuario público.
+- **Contraseñas**: hash Argon2id (`pwdlib`). Nunca se guardan en claro ni salen en las respuestas.
+- **Política**: entre 10 y 128 caracteres, con mayúscula, minúscula, número y símbolo. Se valida en el servidor; el formulario muestra los requisitos en vivo.
+- **Sesión**: JWT firmado con `SECRET_KEY`, caduca en 60 minutos (`TOKEN_MINUTES`). Va en una cookie `httpOnly` (JavaScript no puede leerla), `SameSite=Strict` y restringida a `/api`. En cada petición se recarga el usuario: si lo eliminan o lo suspenden, pierde el acceso al momento.
+- **Login**: el mensaje es el mismo si el email no existe o la contraseña es incorrecta, y el tiempo de respuesta también. Tras 5 fallos en 15 minutos se bloquea esa combinación de email e IP.
+- **Recuperación de contraseña**:
+  - `forgot-password` responde siempre lo mismo, exista o no el email, para no revelar qué cuentas hay.
+  - Solo se envía el enlace a cuentas activas, como máximo 3 veces cada 15 minutos por email.
+  - El token es aleatorio (256 bits) y en la base de datos solo se guarda su SHA-256.
+  - Caduca a los 30 minutos (`RESET_TOKEN_MINUTES`), es de un solo uso y pedir uno nuevo anula los anteriores.
+  - Va en el fragmento de la URL (`#token=…`): el navegador no lo envía al servidor ni en el `Referer`, y la interfaz lo borra de la barra de direcciones al abrir la página.
+  - Al cambiar la contraseña, por recuperación o desde el panel, se incrementa `session_version` y se cierran todas las sesiones abiertas de ese usuario.
+- **Entrada estricta**: se rechazan los campos desconocidos, así que no se puede enviar `password_hash`, `id` ni fechas.
+- **Emails únicos**: se normalizan a minúsculas, y una restricción `UNIQUE` en la base de datos cubre las altas simultáneas.
+- **Integridad**: no puedes eliminarte ni desactivarte, no se borran roles asignados y siempre debe quedar un usuario activo con `users:write` y `roles:write`.
+- **Cabeceras**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Cache-Control: no-store` en la API.
 
-### Rol
+Correo: sin `SMTP_HOST`, el enlace de recuperación se escribe en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.
 
-```ts
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  tone: "moss" | "coral" | "gold" | "blue" | "ink";
-}
-```
+Límites conocidos: el bloqueo de intentos vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias). Para producción, sirve todo por HTTPS con `COOKIE_SECURE=true` y usa migraciones (Alembic) en lugar de `create_all`.
 
-Los tonos solo dan una identidad visual al rol; no representan permisos técnicos.
+## 7. Comandos
 
-## 6. API mock
+| Comando | Qué hace |
+| --- | --- |
+| `npm run api` | Arranca FastAPI con recarga automática en el puerto 8000. |
+| `npm run dev` | Arranca Vite en el puerto 5173. |
+| `npm run test:api` | Ejecuta las pruebas del backend. |
+| `npm run lint` / `npm run build` | Análisis estático y compilación del front-end. |
 
-Base URL: `http://localhost:3001`.
-
-| Método | Ruta | Uso |
-| --- | --- | --- |
-| `GET` | `/` | Ver la base completa del mock. |
-| `GET` | `/users` | Listar usuarios. |
-| `GET` | `/users/:id` | Consultar un usuario. |
-| `POST` | `/users` | Crear usuario con campos públicos y `password`; el mock aplica política y hash. |
-| `PATCH` | `/users/:id` | Editar campos de usuario y actualizar `updatedAt`. No cambia password. |
-| `DELETE` | `/users/:id` | Eliminar usuario. |
-| `GET` | `/roles` | Listar roles. |
-| `GET` | `/roles/:id` | Consultar un rol. |
-| `POST` | `/roles` | Crear rol. |
-| `PATCH` | `/roles/:id` | Editar rol. |
-| `DELETE` | `/roles/:id` | Eliminar rol; el mock no comprueba asignaciones. |
-| `POST` | `/auth/login` | Verificación fija de credenciales demo. |
-
-Ejemplo del cuerpo de alta de usuario:
-
-```json
-{
-  "name": "Alex García",
-  "email": "alex@nodo.local",
-  "username": "alexg",
-  "department": "Producto",
-  "roleId": "role-editor",
-  "status": "active",
-  "password": "Aa1!bcde"
-}
-```
-
-El ejemplo de password es de prueba y cumple el mínimo actual de 8 caracteres y las cuatro clases requeridas.
-
-## 7. Datos de prueba y reinicio
-
-Al arrancar, `mock/server.cjs` copia `mock/seed.json` sobre `mock/db.json`. Esto restaura los usuarios y roles iniciales cada vez que se reinicia el proceso. Mientras el mock permanece encendido, las solicitudes `POST`, `PATCH` y `DELETE` modifican la base generada. No edites `mock/db.json` como fuente de datos; cambia `seed.json` si quieres ajustar las fixtures iniciales.
-
-La semilla incluye un usuario y un rol temporales sin asignación para probar los borrados. Las contraseñas nuevas solo existen en la base mutable como hash; las fixtures iniciales no tienen passwords.
-
-## 8. Thunder Client
-
-1. Instala o abre la extensión `rangav.vscode-thunder-client`.
-2. Crea un entorno llamado `Nodo local` con `baseUrl = http://localhost:3001` y actívalo.
-3. Crea una colección local para las solicitudes de esta API. Usa `{{baseUrl}}` al inicio de cada URL.
-4. Añade las rutas de la tabla anterior. Para solicitudes con cuerpo, selecciona JSON.
-5. Para probar el alta de usuario, incluye `password` en el `POST /users`; prueba `Aa1!bcde` como valor válido y una cadena sin las clases requeridas para comprobar el `400`.
-6. Para login, usa `POST /auth/login` con `{"identifier":"admin@nodo.local","password":"NodoDemo2026!"}`; prueba también una contraseña incorrecta para recibir `401`.
-
-Iniciar el mock antes de enviar solicitudes. Los datos se reinician al detenerlo y volverlo a arrancar.
-
-## 9. Recursos y dependencias
-
-### Runtime de la aplicación
-
-- **React 19 y React DOM**: componentes, estado y renderizado de la interfaz.
-- **Lucide React**: iconos de acciones y navegación.
-- **Tailwind CSS 3**: utilidades de diseño, con PostCSS y Autoprefixer; `src/styles.css` combina `@apply` con reglas específicas para tablas, diálogos, estados y responsive.
-
-### Herramientas de desarrollo
-
-- **Vite 6** y **@vitejs/plugin-react**: servidor de desarrollo y build.
-- **TypeScript 5** y tipos de React/Node: tipado estricto de UI, cliente HTTP y configuración.
-- **ESLint 9**, `typescript-eslint` y `@eslint/js`: análisis estático.
-- **json-server 0.17**: endpoints REST rápidos para datos locales; `mock/server.cjs` añade la ruta de login y el procesamiento de passwords.
-- **PostCSS** y **Autoprefixer**: procesamiento y prefijos del CSS.
-- **Thunder Client**: cliente REST dentro de VS Code para enviar requests al mock.
-
-Las versiones declaradas están en `package.json`; `package-lock.json` fija la resolución instalada.
-
-## 10. Comandos
-
-Desde la carpeta raíz del proyecto:
-
-```bash
-npm install
-```
-
-En un terminal, iniciar la API:
-
-```bash
-npm run api:mock
-```
-
-En un segundo terminal, iniciar Vite:
-
-```bash
-npm run dev
-```
-
-Otros comandos:
-
-```bash
-npm run lint
-npm run build
-npm run preview
-```
-
-Vite suele mostrar `http://localhost:5173`; si el puerto está ocupado, elegirá otro disponible. El mock usa el puerto `3001`, configurable con `MOCK_API_PORT`.
-
-## 11. Seguridad y límites
-
-Este proyecto es una demo local, no un sistema de identidad listo para producción. El hash scrypt protege los passwords nuevos dentro de los datos de prueba, pero el endpoint de login no los valida: utiliza una credencial fija y un token ficticio. No hay sesiones, autorización real, rate limiting, recuperación de cuenta ni cambio de password. Las validaciones de duplicados y de eliminación de roles asignados viven en la interfaz y no son controles de servidor.
-
-No uses datos personales ni contraseñas reales. Para producción, implementa una API propia que almacene hashes con una política apropiada, verifique credenciales, aplique autorización en cada endpoint y gestione sesiones seguras; después configura `API_BASE_URL` para apuntar a esa API.
+Para empezar con una base de datos vacía, detén la API y borra `backend/nodo.db`; al arrancar de nuevo se crean los roles y el administrador de `.env`.

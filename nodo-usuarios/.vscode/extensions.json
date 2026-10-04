@@ -1,5 +1,6 @@
 {
   "recommendations": [
-    "rangav.vscode-thunder-client"
+    "bradlc.vscode-tailwindcss",
+    "ms-python.python"
   ]
 }

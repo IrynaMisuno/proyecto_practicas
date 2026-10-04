@@ -1,63 +1,91 @@
-import type { FormEvent } from "react";
-import { X } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { ApiError } from "../data";
 import type { Role, User, UserDraft, UserStatus } from "../types";
+import { PasswordChecklist, isStrongPassword } from "./PasswordChecklist";
+import { Field, FormError, Modal, buttonStyles, inputStyles, statusLabels } from "./ui";
 
 interface UserDialogProps {
-  open: boolean;
   user?: User;
   roles: Role[];
+  isSelf: boolean;
   onClose: () => void;
-  onSave: (draft: UserDraft, userId?: string, password?: string) => void;
+  onSubmit: (draft: UserDraft) => Promise<void>;
 }
 
-const statusLabels: Record<UserStatus, string> = {
-  active: "Activo",
-  invited: "Invitado",
-  suspended: "Suspendido",
-};
+export function UserDialog({ user, roles, isSelf, onClose, onSubmit }: UserDialogProps) {
+  const [draft, setDraft] = useState<UserDraft>({
+    name: user?.name ?? "",
+    email: user?.email ?? "",
+    role_id: user?.role_id ?? roles[0]?.id ?? "",
+    status: user?.status ?? "active",
+    password: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-export function UserDialog({ open, user, roles, onClose, onSave }: UserDialogProps) {
-  if (!open) return null;
+  const password = draft.password ?? "";
+  const passwordValid = isStrongPassword(password);
+  const passwordRequired = !user;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function update<K extends keyof UserDraft>(field: K, value: UserDraft[K]) {
+    setDraft((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: "" }));
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    onSave(
-      {
-        name: String(formData.get("name")).trim(),
-        email: String(formData.get("email")).trim(),
-        username: String(formData.get("username")).trim(),
-        department: String(formData.get("department")).trim(),
-        roleId: String(formData.get("roleId")),
-        status: String(formData.get("status")) as UserStatus,
-      },
-      user?.id,
-      user ? undefined : String(formData.get("password")),
-    );
+    if ((passwordRequired || password) && !passwordValid) {
+      setFieldErrors((current) => ({ ...current, password: "La contraseña no cumple los requisitos." }));
+      return;
+    }
+    setSaving(true);
+    setFormError("");
+    try {
+      await onSubmit({ ...draft, name: draft.name.trim(), email: draft.email.trim(), password: password || undefined });
+    } catch (caught) {
+      if (caught instanceof ApiError && Object.keys(caught.fields).length) setFieldErrors(caught.fields);
+      else if (caught instanceof ApiError && caught.status === 409 && caught.message.includes("email")) setFieldErrors({ email: caught.message });
+      else setFormError(caught instanceof Error ? caught.message : "No se pudo guardar el usuario.");
+      setSaving(false);
+    }
   }
 
   return (
-    <div className="dialog-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="user-dialog-title">
-        <div className="dialog-heading">
-          <div><span className="eyebrow">DIRECTORIO</span><h2 id="user-dialog-title">{user ? "Editar usuario" : "Nuevo usuario"}</h2></div>
-          <button className="icon-button" type="button" aria-label="Cerrar" onClick={onClose}><X size={19} /></button>
+    <Modal title={user ? "Editar usuario" : "Nuevo usuario"} description={user ? user.email : "La persona podrá entrar con su email y esta contraseña."} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <FormError message={formError} />
+        <Field label="Nombre completo" error={fieldErrors.name}>
+          <input className={inputStyles} required maxLength={80} value={draft.name} aria-invalid={Boolean(fieldErrors.name)} onChange={(event) => update("name", event.target.value)} placeholder="Alex García" />
+        </Field>
+        <Field label="Email" error={fieldErrors.email}>
+          <input className={inputStyles} type="email" required maxLength={254} autoComplete="off" value={draft.email} aria-invalid={Boolean(fieldErrors.email)} onChange={(event) => update("email", event.target.value)} placeholder="nombre@empresa.com" />
+        </Field>
+        <Field
+          label={user ? "Nueva contraseña (opcional)" : "Contraseña"}
+          error={fieldErrors.password}
+          hint={user && !password ? <span className="block text-sm text-slate-500">Déjala vacía para mantener la actual.</span> : undefined}
+        >
+          <input className={inputStyles} type="password" autoComplete="new-password" required={passwordRequired} maxLength={128} value={password} aria-invalid={Boolean(fieldErrors.password)} onChange={(event) => update("password", event.target.value)} />
+        </Field>
+        {(passwordRequired || password) && <PasswordChecklist password={password} />}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Rol" error={fieldErrors.role_id}>
+            <select className={inputStyles} value={draft.role_id} onChange={(event) => update("role_id", event.target.value)}>
+              {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Estado" error={fieldErrors.status} hint={isSelf ? <span className="block text-sm text-slate-500">No puedes desactivar tu cuenta.</span> : undefined}>
+            <select className={inputStyles} value={draft.status} disabled={isSelf} onChange={(event) => update("status", event.target.value as UserStatus)}>
+              {(Object.keys(statusLabels) as UserStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
+            </select>
+          </Field>
         </div>
-        <form key={user?.id ?? "new-user"} onSubmit={handleSubmit}>
-          <label className="field"><span>Nombre completo</span><input name="name" defaultValue={user?.name} autoFocus required maxLength={80} placeholder="Ej. Alex García" /></label>
-          {!user && <label className="field"><span>Contraseña inicial</span><input name="password" type="password" autoComplete="new-password" required minLength={8} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}" title="Usa al menos 8 caracteres, con mayúscula, minúscula, número y símbolo." placeholder="Define una contraseña segura" /><small className="password-guidance">Mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo.</small></label>}
-          <div className="field-row">
-            <label className="field"><span>Correo electrónico</span><input name="email" type="email" defaultValue={user?.email} required maxLength={120} placeholder="nombre@empresa.com" /></label>
-            <label className="field"><span>Nombre de usuario</span><input name="username" defaultValue={user?.username} required minLength={3} maxLength={32} pattern="[a-zA-Z0-9._-]+" placeholder="nombre.apellido" /></label>
-          </div>
-          <div className="field-row">
-            <label className="field"><span>Equipo</span><input name="department" defaultValue={user?.department} required maxLength={60} placeholder="Ej. Operaciones" /></label>
-            <label className="field"><span>Rol</span><select name="roleId" defaultValue={user?.roleId ?? roles[0]?.id} required>{roles.map((role) => <option value={role.id} key={role.id}>{role.name}</option>)}</select></label>
-          </div>
-          <label className="field"><span>Estado de la cuenta</span><select name="status" defaultValue={user?.status ?? "active"}>{(Object.keys(statusLabels) as UserStatus[]).map((status) => <option value={status} key={status}>{statusLabels[status]}</option>)}</select></label>
-          <div className="dialog-actions"><button className="button button-quiet" type="button" onClick={onClose}>Cancelar</button><button className="button button-primary" type="submit" disabled={roles.length === 0}>{user ? "Guardar cambios" : "Crear usuario"}</button></div>
-        </form>
-      </section>
-    </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <button type="button" className={buttonStyles.secondary} onClick={onClose}>Cancelar</button>
+          <button type="submit" className={buttonStyles.primary} disabled={saving || roles.length === 0}>{saving ? "Guardando…" : user ? "Guardar cambios" : "Crear usuario"}</button>
+        </div>
+      </form>
+    </Modal>
   );
 }

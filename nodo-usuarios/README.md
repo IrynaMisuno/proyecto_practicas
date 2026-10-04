@@ -1,66 +1,68 @@
 # Nodo | Administración de usuarios
 
-Panel front-end de demostración para administrar usuarios y roles con React, TypeScript, Vite y Tailwind CSS 3.
+Panel web para administrar usuarios y roles: inicio de sesión con email y contraseña, alta, edición y baja de usuarios, y roles con permisos.
 
-Consulta la [guía detallada del proyecto](docs/guia-del-proyecto.md) para conocer la arquitectura, los flujos, la API mock, las dependencias y Thunder Client.
+- **Front-end:** React 19 + TypeScript + Vite + Tailwind CSS 3
+- **Backend:** FastAPI + SQLAlchemy 2 + SQLite
+- **Seguridad:** contraseñas con Argon2id, sesión JWT en cookie httpOnly, permisos comprobados en el servidor
+
+Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arquitectura, la API y las medidas de seguridad.
 
 ## Requisitos
 
 - Node.js 18 o superior
-- npm
+- Python 3.12 o superior
 
 ## Puesta en marcha
 
+### 1. Backend
+
 ```bash
-npm install
-npm run api:mock
+cd backend
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env
 ```
 
-En otro terminal, inicia la interfaz:
+Edita `backend/.env`:
+
+- `SECRET_KEY`: genera una con `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`.
+- `ADMIN_EMAIL` y `ADMIN_PASSWORD`: el primer administrador. Se crea solo la primera vez, cuando la base de datos no tiene usuarios. La contraseña debe cumplir la política (ver abajo).
+- `SMTP_*` (opcional): servidor de correo para enviar los enlaces de recuperación de contraseña. Si no lo configuras, el enlace aparece en la consola del backend.
+
+Arranca la API (desde la raíz del proyecto):
 
 ```bash
+npm run api
+```
+
+La API queda en `http://127.0.0.1:8000` y la documentación interactiva en `http://127.0.0.1:8000/docs`. La base de datos se guarda en `backend/nodo.db`.
+
+### 2. Front-end
+
+En otro terminal:
+
+```bash
+npm install
 npm run dev
 ```
 
-## Thunder Client y API simulada
+Abre `http://localhost:5173` e inicia sesión con el administrador de `.env`. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
 
-La interfaz consume un mock local mientras se desarrolla el backend real. Thunder Client puede probar sus operaciones HTTP directamente:
-
-```bash
-npm run api:mock
-```
-
-Este comando inicia `http://localhost:3001` y carga los datos de `mock/seed.json`. Abre otro terminal para ejecutar `npm run dev`. Al reiniciar el mock se restaura la base semilla; las operaciones de la colección pueden modificarla mientras siga en marcha.
-
-1. Instala la extensión recomendada `rangav.vscode-thunder-client` si aún no está instalada.
-2. Crea y activa un entorno con `baseUrl = http://localhost:3001`.
-3. Crea una colección local y configura sus URLs con `{{baseUrl}}`; la lista de rutas y cuerpos está en la [guía detallada](docs/guia-del-proyecto.md#8-thunder-client).
-4. Para compartir las peticiones dentro del repositorio, activa **Save to Workspace** en los ajustes de Git Sync de Thunder Client. La extensión guardará su formato nativo en `thunder-tests/`.
-
-Los registros `usr-delete-test` y `role-delete-test` son fixtures temporales para probar borrados.
-
-Credenciales locales de demo: `admin@nodo.local` / `NodoDemo2026!`. El endpoint `/auth/login` es una simulación con credenciales fijas; no genera una sesión segura ni debe exponerse fuera del entorno local.
-
-El mock alimenta tanto las pruebas de Thunder Client como la interfaz. Sus datos se reinician desde `mock/seed.json` cada vez que se inicia `npm run api:mock`.
-
-Para comprobar el proyecto y generar la versión de producción:
+## Comprobaciones
 
 ```bash
+npm run test:api   # pruebas del backend (pytest)
 npm run lint
 npm run build
-npm run preview
 ```
 
-## Funciones incluidas
+## Funciones
 
+- Inicio y cierre de sesión con email y contraseña.
+- «¿Has olvidado tu contraseña?»: enlace por correo, válido 30 minutos y de un solo uso. Al cambiar la contraseña se cierran las sesiones abiertas.
 - Alta, edición, búsqueda, filtrado y baja de usuarios.
-- Contraseña obligatoria al crear usuarios: mínimo 8 caracteres con mayúscula, minúscula, número y símbolo.
-- Administración de roles; no se permite eliminar roles que estén asignados.
-- Verificación de credenciales de demostración desde «Verificar acceso».
-- Usuarios y roles consultados y modificados mediante la API mock local.
-
-Credenciales de demostración: `admin@nodo.local` / `NodoDemo2026!`.
-
-## Seguridad y siguiente paso
-
-Esto es solo una interfaz y una API mock de demostración. El mock almacena las nuevas contraseñas como hash scrypt y no devuelve el hash en sus respuestas, pero el login sigue usando credenciales fijas y devuelve un token ficticio; no hay gestión de sesiones ni autorización real. No uses credenciales reales ni expongas este servicio. Para producción, reemplaza el mock por una API real con autorización por rol, sesiones protegidas y validación del lado servidor.
+- Roles editables con permisos: `users:read`, `users:write`, `roles:read` y `roles:write`. La interfaz oculta lo que tu rol no permite y la API lo rechaza (403).
+- Contraseña: mínimo 10 caracteres, con mayúscula, minúscula, número y símbolo. Se valida en el formulario y en el servidor.
+- Emails únicos sin distinguir mayúsculas (409 si ya existe).
+- Protecciones: no puedes eliminarte ni desactivarte, no se puede borrar un rol asignado y siempre debe quedar un administrador activo.

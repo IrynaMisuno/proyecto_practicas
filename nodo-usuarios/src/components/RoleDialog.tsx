@@ -1,52 +1,99 @@
-import type { FormEvent } from "react";
-import { X } from "lucide-react";
-import type { Role, RoleDraft, RoleTone } from "../types";
+import { useState, type FormEvent } from "react";
+import { ApiError } from "../data";
+import type { Permission, PermissionInfo, Role, RoleDraft, RoleTone } from "../types";
+import { Field, FormError, Modal, buttonStyles, inputStyles, toneStyles } from "./ui";
+
+const toneLabels: Record<RoleTone, string> = {
+  slate: "Gris",
+  indigo: "Índigo",
+  emerald: "Verde",
+  amber: "Ámbar",
+  rose: "Rosa",
+  sky: "Azul",
+};
 
 interface RoleDialogProps {
-  open: boolean;
   role?: Role;
+  permissions: PermissionInfo[];
   onClose: () => void;
-  onSave: (draft: RoleDraft, roleId?: string) => void;
+  onSubmit: (draft: RoleDraft) => Promise<void>;
 }
 
-const tones: { value: RoleTone; label: string }[] = [
-  { value: "moss", label: "Verde" },
-  { value: "coral", label: "Coral" },
-  { value: "gold", label: "Oro" },
-  { value: "blue", label: "Azul" },
-  { value: "ink", label: "Grafito" },
-];
+export function RoleDialog({ role, permissions, onClose, onSubmit }: RoleDialogProps) {
+  const [draft, setDraft] = useState<RoleDraft>({
+    name: role?.name ?? "",
+    description: role?.description ?? "",
+    tone: role?.tone ?? "slate",
+    permissions: role?.permissions ?? [],
+  });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-export function RoleDialog({ open, role, onClose, onSave }: RoleDialogProps) {
-  if (!open) return null;
+  function togglePermission(permission: Permission) {
+    setDraft((current) => ({
+      ...current,
+      permissions: current.permissions.includes(permission)
+        ? current.permissions.filter((item) => item !== permission)
+        : [...current.permissions, permission],
+    }));
+  }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    onSave(
-      {
-        name: String(formData.get("name")).trim(),
-        description: String(formData.get("description")).trim(),
-        tone: String(formData.get("tone")) as RoleTone,
-      },
-      role?.id,
-    );
+    setSaving(true);
+    setFormError("");
+    setFieldErrors({});
+    try {
+      await onSubmit({ ...draft, name: draft.name.trim(), description: draft.description.trim() });
+    } catch (caught) {
+      if (caught instanceof ApiError && Object.keys(caught.fields).length) setFieldErrors(caught.fields);
+      else if (caught instanceof ApiError && caught.status === 409 && caught.message.includes("nombre")) setFieldErrors({ name: caught.message });
+      else setFormError(caught instanceof Error ? caught.message : "No se pudo guardar el rol.");
+      setSaving(false);
+    }
   }
 
   return (
-    <div className="dialog-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="role-dialog-title">
-        <div className="dialog-heading">
-          <div><span className="eyebrow">PERMISOS</span><h2 id="role-dialog-title">{role ? "Editar rol" : "Nuevo rol"}</h2></div>
-          <button className="icon-button" type="button" aria-label="Cerrar" onClick={onClose}><X size={19} /></button>
+    <Modal title={role ? "Editar rol" : "Nuevo rol"} description="Los permisos se comprueban en el servidor en cada operación." onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <FormError message={formError} />
+        <Field label="Nombre" error={fieldErrors.name}>
+          <input className={inputStyles} required maxLength={40} value={draft.name} aria-invalid={Boolean(fieldErrors.name)} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Analista" />
+        </Field>
+        <Field label="Descripción" error={fieldErrors.description}>
+          <textarea className={inputStyles} rows={2} maxLength={160} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Qué puede hacer este rol" />
+        </Field>
+        <fieldset>
+          <legend className="text-sm font-medium text-slate-700">Permisos</legend>
+          <div className="mt-2 divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200">
+            {permissions.map((permission) => (
+              <label key={permission.key} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50">
+                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" checked={draft.permissions.includes(permission.key)} onChange={() => togglePermission(permission.key)} />
+                <span className="flex-1 text-slate-700">{permission.label}</span>
+                <code className="text-xs text-slate-400">{permission.key}</code>
+              </label>
+            ))}
+          </div>
+          {fieldErrors.permissions && <p className="mt-1.5 text-sm text-rose-600">{fieldErrors.permissions}</p>}
+        </fieldset>
+        <fieldset>
+          <legend className="text-sm font-medium text-slate-700">Color</legend>
+          <div className="mt-2 flex gap-2">
+            {(Object.keys(toneLabels) as RoleTone[]).map((tone) => (
+              <label key={tone} title={toneLabels[tone]} className="cursor-pointer">
+                <input type="radio" name="tone" className="peer sr-only" checked={draft.tone === tone} onChange={() => setDraft({ ...draft, tone })} />
+                <span className={`block h-7 w-7 rounded-full ring-2 ring-transparent ring-offset-2 peer-checked:ring-slate-900 peer-focus-visible:ring-indigo-500 ${toneStyles[tone].swatch}`} />
+                <span className="sr-only">{toneLabels[tone]}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div className="flex justify-end gap-3 pt-2">
+          <button type="button" className={buttonStyles.secondary} onClick={onClose}>Cancelar</button>
+          <button type="submit" className={buttonStyles.primary} disabled={saving}>{saving ? "Guardando…" : role ? "Guardar cambios" : "Crear rol"}</button>
         </div>
-        <form key={role?.id ?? "new-role"} onSubmit={handleSubmit}>
-          <label className="field"><span>Nombre del rol</span><input name="name" defaultValue={role?.name} autoFocus required maxLength={40} placeholder="Ej. Analista" /></label>
-          <label className="field"><span>Descripción</span><textarea name="description" defaultValue={role?.description} required maxLength={120} rows={3} placeholder="Describe brevemente sus permisos" /></label>
-          <fieldset className="field tone-picker"><legend>Identificador de color</legend><div className="tone-options">{tones.map((tone) => <label className={`tone-option tone-${tone.value}`} key={tone.value} title={tone.label}><input type="radio" name="tone" value={tone.value} defaultChecked={role?.tone === tone.value || (!role && tone.value === "moss")} /><span className="sr-only">{tone.label}</span></label>)}</div></fieldset>
-          <div className="dialog-actions"><button className="button button-quiet" type="button" onClick={onClose}>Cancelar</button><button className="button button-primary" type="submit">{role ? "Guardar cambios" : "Crear rol"}</button></div>
-        </form>
-      </section>
-    </div>
+      </form>
+    </Modal>
   );
 }
