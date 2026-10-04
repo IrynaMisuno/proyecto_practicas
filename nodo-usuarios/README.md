@@ -49,6 +49,16 @@ npm run dev
 
 Abre `http://localhost:5173` e inicia sesión con el administrador de `.env`. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
 
+### 3. Usuarios para probar
+
+Al arrancar solo existe el administrador de `.env`. Para probar con un rol sin permisos de escritura, crea un usuario Lector:
+
+1. Inicia sesión como administrador.
+2. En **Usuarios**, pulsa **Añadir usuario** y crea uno con un email de prueba (p. ej. `lector@example.com`), el rol **Lector** y una contraseña que cumpla la política.
+3. Cierra la sesión y entra con ese usuario: puede ver usuarios y roles, pero no le aparecen los botones de crear, editar ni eliminar, y la API le responde 403 si lo intenta.
+
+No escribas contraseñas reales en el repositorio: las de prueba solo las conoces tú.
+
 ## Comprobaciones
 
 ```bash
