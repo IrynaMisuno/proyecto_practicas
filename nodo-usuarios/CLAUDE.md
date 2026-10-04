@@ -19,7 +19,6 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 - La validación y la autorización se hacen en el servidor; la interfaz solo las refleja.
 - Si cambias la API, el modelo de datos o una medida de seguridad, actualiza `docs/guia-del-proyecto.md` en el mismo cambio. Mantén coherente `.github/copilot-instructions.md`.
 - No subas `backend/.env`, `backend/nodo.db`, `dist/` ni `.pytest_cache/` (ya están en `.gitignore`).
-- Hay otra copia más antigua del repo en `~/Documents/proyecto_practicas`; trabaja en esta.
 - Commits con Conventional Commits, con la descripción en español: `feat: añade filtro por rol`, `fix: …`, `docs: …`, `test: …`, `refactor: …`.
 
 ## Normas de referencia y dónde se aplican
