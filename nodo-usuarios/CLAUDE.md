@@ -11,6 +11,7 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 - `npm run api`: arranca FastAPI en `127.0.0.1:8000` (requiere `backend/.venv` y `backend/.env`).
 - `npm run dev`: arranca Vite en `localhost:5173`; redirige `/api` al backend (mismo origen, sin CORS).
 - `npm run test:api`: pytest del backend. Una prueba: `cd backend && .venv/bin/pytest tests/test_api.py -k nombre_prueba`.
+- `npm test`: Vitest del front-end en modo vigilancia (`npx vitest run` para una sola pasada). Un archivo: `npx vitest run src/components/PasswordChecklist.test.tsx`.
 - `npm run lint` y `npm run build` (`tsc -b` + Vite).
 
 ## Normas generales
@@ -34,11 +35,11 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 | ESLint + TypeScript estricto | `src/` | `.claude/rules/frontend.md` |
 | The Twelve-Factor App (configuración) | `backend/.env`, `app/config.py` | `.claude/rules/seguridad.md` (Secretos) |
 
-Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend, integración continua con GitHub Actions (lint + build + pytest) y auditoría de dependencias (`npm audit`, `pip-audit`).
+Pendiente, todavía sin hacer (no lo des por hecho): tests de los componentes que aún no tienen y migración a `src/components/ui/` y `src/hooks/` (ver `.claude/rules/frontend.md`), Ruff para el backend, integración continua con GitHub Actions (lint + build + pytest) y auditoría de dependencias (`npm audit`, `pip-audit`).
 
 ## Verificación antes de dar un cambio por terminado
 
 1. `npm run test:api` si tocaste `backend/`.
-2. `npm run lint` y `npm run build` si tocaste `src/`.
+2. `npx vitest run`, `npm run lint` y `npm run build` si tocaste `src/`.
 3. Si es un cambio visible, probarlo con `npm run api` + `npm run dev`: con el administrador y con un rol sin permisos (Lector), a anchura de móvil y solo con teclado.
 4. Di qué comprobaste y qué no.

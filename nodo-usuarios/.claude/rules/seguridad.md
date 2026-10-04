@@ -34,5 +34,6 @@ Referencias: OWASP ASVS 5.0 (capítulos de autenticación, sesión, control de a
 
 ## Front-end
 - No uses `dangerouslySetInnerHTML` ni construyas HTML con cadenas.
-- Llama a la API solo desde `src/data.ts` (`credentials: "same-origin"`); codifica los ids en las URLs con `encodeURIComponent`.
+- Las peticiones HTTP pasan siempre por `request()` de `src/data.ts` (`credentials: "same-origin"`, manejo del 401 y de `ApiError`). Los componentes no importan `data.ts`: usan los hooks de `src/hooks/`.
+- Codifica los ids en las URLs con `encodeURIComponent`.
 - Producción: HTTPS y `COOKIE_SECURE=true`.

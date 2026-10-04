@@ -13,11 +13,27 @@ paths:
 - Los tipos de la API van en `src/types.ts` y deben coincidir con los modelos `...Out` de `backend/app/schemas.py`.
 
 ## Componentes
-- Componentes funcionales con hooks, uno por archivo en `src/components/`.
-- Antes de crear piezas nuevas, reutiliza las de `src/components/ui.tsx`: `buttonStyles`, `inputStyles`, `Field`, `FormError`, `Modal`, `Toast`, `RoleBadge`, `StatusBadge`.
-- La API se llama solo desde `src/data.ts`. Los errores llegan como `ApiError`: muestra `error.fields[campo]` junto a cada campo y `error.message` con `FormError`.
+- Componentes funcionales, uno por archivo en `src/components/`.
+- Lo más atómicos posible: cada componente hace una sola cosa y recibe por props lo que necesita. Si un trozo de JSX se repite o un componente crece demasiado, extráelo a una pieza reutilizable en lugar de copiarlo.
+- Los componentes de UI (piezas genéricas sin lógica de negocio ni llamadas a la API: botones, campos, modales, insignias…) se crean en `src/components/ui/`, uno por archivo, y se exportan desde `src/components/ui/index.ts`. Impórtalos siempre desde ahí (`import { Modal } from "./ui"`), nunca desde el archivo concreto.
+- Antes de crear una pieza nueva, reutiliza las que ya hay: `buttonStyles`, `inputStyles`, `Field`, `FormError`, `Modal`, `Toast`, `RoleBadge`, `StatusBadge`.
 - Usa `can("permiso")` de `src/auth.tsx` para ocultar lo que el rol no permite.
 - Fechas con `formatDate` (`es-ES`).
+
+## Llamadas a la API
+- Los componentes llaman a la API a través de hooks reutilizables en `src/hooks/` (`useUsers`, `useRoles`…), uno por archivo. Cada hook devuelve los datos, el estado de carga y el error.
+- `src/data.ts` sigue siendo el único sitio que hace `fetch` (ver `seguridad.md`): los hooks usan sus funciones y los componentes no lo importan.
+- Los errores llegan como `ApiError`: muestra `error.fields[campo]` junto a cada campo y `error.message` con `FormError`.
+
+## Pruebas
+- Cada componente tiene su propio test junto a él: `Componente.test.tsx`.
+- Con Vitest y React Testing Library: prueba lo que la persona ve y hace (busca por rol y texto accesible, p. ej. `getByRole`), no detalles internos.
+- Simula los hooks de la API en los tests; no hagas peticiones reales.
+- Configuración en `vite.config.ts` (entorno `jsdom`) y `src/test/setup.ts`. Ejemplo de referencia: `src/components/PasswordChecklist.test.tsx`.
+
+## Estado actual (pendiente de migrar)
+- Las piezas de UI siguen todas en `src/components/ui.tsx`, aún no existe `src/hooks/`, `App.tsx`, `auth.tsx` y `PasswordRecovery.tsx` llaman a `data.ts` directamente, y solo `PasswordChecklist` tiene test.
+- Aplica estas normas a lo que crees o modifiques; no migres el resto sin que la usuaria lo pida.
 
 ## Estilos
 - Solo clases de utilidad de Tailwind. `src/styles.css` contiene únicamente directivas y estilos base; no añadas CSS propio.
