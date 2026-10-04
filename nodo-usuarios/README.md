@@ -10,7 +10,7 @@ Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arqu
 
 ## Requisitos
 
-- Node.js 18 o superior
+- Node.js 20 o superior
 - Python 3.12 o superior
 
 ## Puesta en marcha
@@ -53,6 +53,7 @@ Abre `http://localhost:5173` e inicia sesión con el administrador de `.env`. Vi
 
 ```bash
 npm run test:api   # pruebas del backend (pytest)
+npx vitest run     # pruebas del front-end (Vitest)
 npm run lint
 npm run build
 ```
