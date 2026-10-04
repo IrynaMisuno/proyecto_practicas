@@ -36,18 +36,25 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | Ruta | Responsabilidad |
 | --- | --- |
 | `main.tsx` | Monta la app dentro de `AuthProvider`. |
-| `auth.tsx` | Contexto de sesión: usuario actual, `login`, `logout`, `can(permiso)`. |
-| `data.ts` | Cliente HTTP de `/api`; convierte los errores en `ApiError` y cierra la sesión ante un 401. |
-| `App.tsx` | Pantalla de login o panel; navegación, carga de datos y diálogos. |
-| `components/UsersView.tsx` | Resumen, búsqueda, filtros y tabla de usuarios. |
-| `components/RolesView.tsx` | Tarjetas de roles con sus permisos y usuarios asignados. |
+| `App.tsx` | Elige la pantalla: carga, recuperación de contraseña, login o panel. |
+| `data.ts` | Cliente HTTP de `/api`: el único que hace `fetch`; convierte los errores en `ApiError` y cierra la sesión ante un 401. |
+| `errors.ts` | `ApiError` y `errorMessage()`. |
+| `format.ts` | Fechas, iniciales, nombres de estado y orden por nombre. |
+| `hooks/useAuth.tsx` | `AuthProvider` y `useAuth`: usuario actual, `login`, `logout`, `can(permiso)`. |
+| `hooks/useUsers.ts`, `useRoles.ts`, `usePermissions.ts` | Datos del panel y sus operaciones; llaman a `data.ts`. |
+| `hooks/useForgotPassword.ts`, `useResetPassword.ts` | Recuperación de contraseña (`/restablecer-contrasena`). |
+| `hooks/useToast.ts` | Avisos temporales. |
+| `components/Dashboard.tsx` | Panel con sesión: secciones, carga de datos y diálogos. |
+| `components/Sidebar.tsx` | Navegación y cierre de sesión. |
+| `components/UsersView.tsx` | Vista de usuarios: `UserStats`, `UserFilters` y una `UserRow` por usuario. |
+| `components/RolesView.tsx` | Vista de roles: una `RoleCard` por rol con sus permisos y usuarios asignados. |
 | `components/UserDialog.tsx`, `RoleDialog.tsx` | Formularios de alta y edición, con los errores del servidor junto a cada campo. |
-| `components/ConfirmDialog.tsx` | Confirmación de borrado. |
 | `components/LoginPage.tsx` | Inicio de sesión con el enlace «¿Has olvidado tu contraseña?». |
-| `components/PasswordRecovery.tsx` | Solicitud del enlace y elección de la contraseña nueva (`/restablecer-contrasena`). |
+| `components/ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | Solicitud del enlace y elección de la contraseña nueva. |
 | `components/PasswordChecklist.tsx` | Requisitos de contraseña en vivo; la misma política que el backend. |
-| `components/AuthShell.tsx` | Marco común de las pantallas sin sesión. |
-| `components/ui.tsx` | Piezas comunes: estilos de botones y campos, `Modal`, insignias, `Toast`. |
+| `components/AuthShell.tsx`, `BackToLogin.tsx` | Marco común de las pantallas sin sesión. |
+| `components/ui/` | Piezas genéricas exportadas desde `index.ts`: `Modal`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, insignias, `Toast`, etc., y los estilos. |
+| `test/` | Configuración de Vitest y datos de prueba. Cada componente tiene su `*.test.tsx` al lado. |
 
 ## 4. Modelo de datos
 
@@ -118,6 +125,7 @@ Límites conocidos: el bloqueo de intentos vive en memoria (se reinicia con el p
 | `npm run api` | Arranca FastAPI con recarga automática en el puerto 8000. |
 | `npm run dev` | Arranca Vite en el puerto 5173. |
 | `npm run test:api` | Ejecuta las pruebas del backend. |
+| `npm test` | Ejecuta las pruebas del front-end (Vitest) y las repite al guardar; `npx vitest run` para una sola pasada. |
 | `npm run lint` / `npm run build` | Análisis estático y compilación del front-end. |
 
 Para empezar con una base de datos vacía, detén la API y borra `backend/nodo.db`; al arrancar de nuevo se crean los roles y el administrador de `.env`.

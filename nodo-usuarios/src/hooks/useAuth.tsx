@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import * as api from "./data";
-import type { CurrentUser, Permission } from "./types";
+import * as api from "../data";
+import type { CurrentUser, Permission } from "../types";
 
-interface AuthContextValue {
+export interface AuthContextValue {
   user: CurrentUser | null;
   loading: boolean;
   /** La sesión se cerró sola (caducada o invalidada), no porque la persona saliera. */
@@ -56,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/** Sesión actual: usuario, login, logout y `can(permiso)`. */
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth debe usarse dentro de AuthProvider");

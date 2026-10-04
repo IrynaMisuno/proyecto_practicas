@@ -16,24 +16,24 @@ paths:
 - Componentes funcionales, uno por archivo en `src/components/`.
 - Lo más atómicos posible: cada componente hace una sola cosa y recibe por props lo que necesita. Si un trozo de JSX se repite o un componente crece demasiado, extráelo a una pieza reutilizable en lugar de copiarlo.
 - Los componentes de UI (piezas genéricas sin lógica de negocio ni llamadas a la API: botones, campos, modales, insignias…) se crean en `src/components/ui/`, uno por archivo, y se exportan desde `src/components/ui/index.ts`. Impórtalos siempre desde ahí (`import { Modal } from "./ui"`), nunca desde el archivo concreto.
-- Antes de crear una pieza nueva, reutiliza las que ya hay: `buttonStyles`, `inputStyles`, `Field`, `FormError`, `Modal`, `Toast`, `RoleBadge`, `StatusBadge`.
-- Usa `can("permiso")` de `src/auth.tsx` para ocultar lo que el rol no permite.
-- Fechas con `formatDate` (`es-ES`).
+- Antes de crear una pieza nueva, reutiliza las que ya hay: `Avatar`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, `Logo`, `Modal`, `PageHeader`, `RoleBadge`, `StatusBadge`, `Toast` y los estilos `buttonStyles`, `inputStyles`, `linkStyles` y `toneStyles`.
+- Botones que solo tienen icono: usa `IconButton`, que obliga a dar un `label` accesible.
+- Usa `can("permiso")` de `useAuth` (`src/hooks/useAuth.tsx`) para ocultar lo que el rol no permite.
+- Fechas, iniciales, nombres de estado y orden por nombre: `src/format.ts` (`formatDate`, `getInitials`, `statusLabels`, `compareByName`).
 
 ## Llamadas a la API
-- Los componentes llaman a la API a través de hooks reutilizables en `src/hooks/` (`useUsers`, `useRoles`…), uno por archivo. Cada hook devuelve los datos, el estado de carga y el error.
+- Los componentes llaman a la API a través de hooks reutilizables en `src/hooks/` (`useUsers`, `useRoles`…), uno por archivo. Cada hook devuelve los datos, el error y sus operaciones (`reload`, `createUser`…). La sesión está en `useAuth` (con su `AuthProvider`).
 - `src/data.ts` sigue siendo el único sitio que hace `fetch` (ver `seguridad.md`): los hooks usan sus funciones y los componentes no lo importan.
-- Los errores llegan como `ApiError`: muestra `error.fields[campo]` junto a cada campo y `error.message` con `FormError`.
+- Los errores llegan como `ApiError` (`src/errors.ts`, que los componentes sí pueden importar). Usa `errorMessage(caught, textoPorDefecto)` para el mensaje. Muestra `error.fields[campo]` junto a cada campo y `error.message` con `FormError`.
 
 ## Pruebas
 - Cada componente tiene su propio test junto a él: `Componente.test.tsx`.
 - Con Vitest y React Testing Library: prueba lo que la persona ve y hace (busca por rol y texto accesible, p. ej. `getByRole`), no detalles internos.
 - Simula los hooks de la API en los tests; no hagas peticiones reales.
-- Configuración en `vite.config.ts` (entorno `jsdom`) y `src/test/setup.ts`. Ejemplo de referencia: `src/components/PasswordChecklist.test.tsx`.
-
-## Estado actual (pendiente de migrar)
-- Las piezas de UI siguen todas en `src/components/ui.tsx`, aún no existe `src/hooks/`, `App.tsx`, `auth.tsx` y `PasswordRecovery.tsx` llaman a `data.ts` directamente, y solo `PasswordChecklist` tiene test.
-- Aplica estas normas a lo que crees o modifiques; no migres el resto sin que la usuaria lo pida.
+- Simula un hook con `vi.mock("../hooks/useX")` y `vi.mocked(useX).mockReturnValue(...)`. Ejemplo: `src/components/Dashboard.test.tsx`.
+- Interacciones con `userEvent` (`@testing-library/user-event`), no con `fireEvent`.
+- Datos de prueba compartidos en `src/test/fixtures.ts` (incluido `authValue()` para simular `useAuth`).
+- Configuración en `vite.config.ts` (entorno `jsdom`) y `src/test/setup.ts`.
 
 ## Estilos
 - Solo clases de utilidad de Tailwind. `src/styles.css` contiene únicamente directivas y estilos base; no añadas CSS propio.

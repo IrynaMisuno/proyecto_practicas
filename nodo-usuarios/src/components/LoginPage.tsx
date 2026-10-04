@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { LogIn } from "lucide-react";
-import { useAuth } from "../auth";
-import { AuthShell, linkStyles } from "./AuthShell";
-import { Field, FormError, buttonStyles, inputStyles } from "./ui";
+import { errorMessage } from "../errors";
+import { useAuth } from "../hooks/useAuth";
+import { AuthShell } from "./AuthShell";
+import { Field, FormError, buttonStyles, inputStyles, linkStyles } from "./ui";
 
 interface LoginPageProps {
   notice?: string;
@@ -24,7 +25,7 @@ export function LoginPage({ notice, noticeTone = "success", onForgotPassword }: 
     try {
       await login(email.trim(), password);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo iniciar sesión.");
+      setError(errorMessage(caught, "No se pudo iniciar sesión."));
       setPassword("");
     } finally {
       setSubmitting(false);

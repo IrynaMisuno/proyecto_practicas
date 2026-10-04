@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { ApiError } from "../data";
+import { ApiError, errorMessage } from "../errors";
+import { statusLabels } from "../format";
 import type { Role, User, UserDraft, UserStatus } from "../types";
 import { PasswordChecklist, isStrongPassword } from "./PasswordChecklist";
-import { Field, FormError, Modal, buttonStyles, inputStyles, statusLabels } from "./ui";
+import { Field, FormError, Modal, buttonStyles, inputStyles } from "./ui";
 
 interface UserDialogProps {
   user?: User;
@@ -46,7 +47,7 @@ export function UserDialog({ user, roles, isSelf, onClose, onSubmit }: UserDialo
     } catch (caught) {
       if (caught instanceof ApiError && Object.keys(caught.fields).length) setFieldErrors(caught.fields);
       else if (caught instanceof ApiError && caught.status === 409 && caught.message.includes("email")) setFieldErrors({ email: caught.message });
-      else setFormError(caught instanceof Error ? caught.message : "No se pudo guardar el usuario.");
+      else setFormError(errorMessage(caught, "No se pudo guardar el usuario."));
       setSaving(false);
     }
   }

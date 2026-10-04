@@ -9,7 +9,7 @@ paths:
 Al justificar un cambio de accesibilidad, cita el criterio WCAG (p. ej. «1.4.3 Contraste mínimo», «2.1.1 Teclado», «3.3.1 Identificación de errores»).
 
 ## Formularios
-- Cada campo tiene una etiqueta visible: usa `Field` de `ui.tsx`. Si no hay etiqueta visible, añade un texto oculto con `sr-only` dentro del `<label>`, como en los filtros de `UsersView.tsx`.
+- Cada campo tiene una etiqueta visible: usa `Field` de `src/components/ui/`. Si no hay etiqueta visible, añade un texto oculto con `sr-only` dentro del `<label>`, como en `UserFilters.tsx`.
 - Marca los errores con `aria-invalid` en el campo y el mensaje con `role="alert"` (ya lo hacen `Field` y `FormError`).
 - Pon `autoComplete` correcto: `email`, `current-password`, `new-password`.
 - No informes solo con color: acompáñalo de texto. `PasswordChecklist` añade ": cumplido"/": pendiente" con `sr-only`.
@@ -18,7 +18,7 @@ Al justificar un cambio de accesibilidad, cita el criterio WCAG (p. ej. «1.4.3 
 - Todo debe poder hacerse solo con teclado. Usa `<button>` y `<a>` reales, nunca `onClick` en un `<div>`.
 - Los diálogos usan `Modal`: `role="dialog"`, `aria-modal`, título enlazado, cierre con Escape y foco devuelto al cerrar. No crees diálogos propios.
 - No quites el anillo de `:focus-visible` definido en `styles.css`.
-- Los botones que solo tienen un icono llevan `aria-label` en español (p. ej. `aria-label="Cerrar"`).
+- Los botones que solo tienen un icono usan `IconButton`, con un `label` en español (p. ej. `label="Cerrar"`), que se convierte en su `aria-label`.
 
 ## Contenido
 - Tablas con `<th scope="col">`; las columnas de acciones llevan el encabezado en `sr-only`.

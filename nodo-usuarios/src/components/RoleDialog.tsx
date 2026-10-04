@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ApiError } from "../data";
+import { ApiError, errorMessage } from "../errors";
 import type { Permission, PermissionInfo, Role, RoleDraft, RoleTone } from "../types";
 import { Field, FormError, Modal, buttonStyles, inputStyles, toneStyles } from "./ui";
 
@@ -49,7 +49,7 @@ export function RoleDialog({ role, permissions, onClose, onSubmit }: RoleDialogP
     } catch (caught) {
       if (caught instanceof ApiError && Object.keys(caught.fields).length) setFieldErrors(caught.fields);
       else if (caught instanceof ApiError && caught.status === 409 && caught.message.includes("nombre")) setFieldErrors({ name: caught.message });
-      else setFormError(caught instanceof Error ? caught.message : "No se pudo guardar el rol.");
+      else setFormError(errorMessage(caught, "No se pudo guardar el rol."));
       setSaving(false);
     }
   }

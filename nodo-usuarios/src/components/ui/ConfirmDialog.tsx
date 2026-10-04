@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { FormError, Modal, buttonStyles } from "./ui";
+import { errorMessage } from "../../errors";
+import { FormError } from "./FormError";
+import { Modal } from "./Modal";
+import { buttonStyles } from "./styles";
 
 interface ConfirmDialogProps {
   title: string;
@@ -9,6 +12,7 @@ interface ConfirmDialogProps {
   onClose: () => void;
 }
 
+/** Confirmación de una acción destructiva; si falla, muestra el error sin cerrarse. */
 export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onClose }: ConfirmDialogProps) {
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
@@ -20,7 +24,7 @@ export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onClose
       await onConfirm();
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo completar la operación.");
+      setError(errorMessage(caught, "No se pudo completar la operación."));
       setWorking(false);
     }
   }
