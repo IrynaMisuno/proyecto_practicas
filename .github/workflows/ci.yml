@@ -1,0 +1,53 @@
+# Comprobaciones de cada push a main y de cada pull request:
+# lint, pruebas y build del front-end, y pruebas del backend.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Si llega un push nuevo a la misma rama, cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: nodo-usuarios
+
+jobs:
+  frontend:
+    name: Front-end (lint, Vitest, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: nodo-usuarios/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx vitest run
+      - run: npm run build
+
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: nodo-usuarios/backend/requirements.txt
+      # El mismo entorno que en local: `npm run test:api` usa backend/.venv.
+      # Las pruebas definen sus propias variables de entorno (tests/conftest.py); no hace falta .env.
+      - run: |
+          python -m venv backend/.venv
+          backend/.venv/bin/pip install -r backend/requirements.txt
+      - run: npm run test:api

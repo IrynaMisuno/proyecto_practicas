@@ -35,7 +35,9 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 | ESLint + TypeScript estricto | `src/` | `.claude/rules/frontend.md` |
 | The Twelve-Factor App (configuración) | `backend/.env`, `app/config.py` | `.claude/rules/seguridad.md` (Secretos) |
 
-Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend, integración continua con GitHub Actions (lint + build + pytest) y auditoría de dependencias (`npm audit`, `pip-audit`).
+Integración continua: `.github/workflows/ci.yml` (en la raíz del repositorio) ejecuta lint, Vitest, build y pytest en cada push a `main` y en cada pull request.
+
+Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend y auditoría de dependencias (`npm audit`, `pip-audit`).
 
 ## Verificación antes de dar un cambio por terminado
 

@@ -68,6 +68,8 @@ npm run lint
 npm run build
 ```
 
+GitHub Actions ejecuta estas mismas comprobaciones en cada push a `main` y en cada pull request (`.github/workflows/ci.yml`, en la raíz del repositorio).
+
 ## Funciones
 
 - Inicio y cierre de sesión con email y contraseña.
