@@ -20,6 +20,7 @@ Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arqu
 ```bash
 cd backend
 python3 -m venv .venv
+.venv/bin/pip install --upgrade pip   # el pip que trae el sistema puede tener vulnerabilidades
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env
 ```

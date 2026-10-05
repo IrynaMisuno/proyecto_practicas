@@ -49,5 +49,6 @@ jobs:
       # Las pruebas definen sus propias variables de entorno (tests/conftest.py); no hace falta .env.
       - run: |
           python -m venv backend/.venv
+          backend/.venv/bin/pip install --upgrade pip
           backend/.venv/bin/pip install -r backend/requirements.txt
       - run: npm run test:api
