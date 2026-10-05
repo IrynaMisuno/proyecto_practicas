@@ -102,6 +102,27 @@ def test_invited_users_get_no_password_reset_link(admin: TestClient, invitations
     assert resets == []
 
 
+
+def test_changing_the_email_cancels_the_pending_invitation(admin: TestClient, invitations: list[dict]):
+    user = invite(admin, "errata@exmaple.com").json()
+    assert admin.patch(f"/api/users/{user['id']}", json={"email": "correcta@example.com"}).status_code == 200
+    assert accept(admin, token_from(invitations[0])).status_code == 400
+
+
+def test_suspending_cancels_the_pending_invitation_even_after_reactivating(admin: TestClient, invitations: list[dict]):
+    user = invite(admin, "reactivada@example.com").json()
+    admin.patch(f"/api/users/{user['id']}", json={"status": "suspended"})
+    admin.patch(f"/api/users/{user['id']}", json={"status": "invited"})
+    assert accept(admin, token_from(invitations[0])).status_code == 400
+
+
+def test_editing_other_fields_keeps_the_pending_invitation(admin: TestClient, invitations: list[dict]):
+    user = invite(admin, "sigue@example.com").json()
+    # La interfaz envía todos los campos al editar, también el email y el estado sin cambios.
+    edit = {"name": "Nombre nuevo", "email": "sigue@example.com", "status": "invited", "role_id": role_id(admin, "Gestor")}
+    assert admin.patch(f"/api/users/{user['id']}", json=edit).status_code == 200
+    assert accept(admin, token_from(invitations[0])).status_code == 200
+
 # --- Reenvío ---------------------------------------------------------------
 
 def test_resending_invitation_replaces_the_previous_link(admin: TestClient, invitations: list[dict]):

@@ -110,6 +110,7 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
   - Caduca a los 30 minutos (`RESET_TOKEN_MINUTES`), es de un solo uso y pedir uno nuevo anula los anteriores.
   - Va en el fragmento de la URL (`#token=…`): el navegador no lo envía al servidor ni en el `Referer`, y la interfaz lo borra de la barra de direcciones al abrir la página.
   - Al cambiar la contraseña, por recuperación o desde el panel, se incrementa `session_version` y se cierran todas las sesiones abiertas de ese usuario.
+  - Los enlaces pendientes (de recuperación o de invitación) se anulan si cambia la contraseña, si se suspende la cuenta o si cambia el email, porque se enviaron a la dirección anterior.
 - **Alta por invitación**:
   - El administrador nunca conoce ni elige la contraseña de otra persona: el usuario se crea como `invited`, con una contraseña aleatoria que nadie conoce, y recibe un enlace para elegir la suya.
   - El enlace usa el mismo mecanismo que la recuperación (token de 256 bits, solo se guarda el SHA-256, un solo uso, en el fragmento de la URL), pero va a `/aceptar-invitacion` y caduca a las 24 horas (`INVITE_TOKEN_HOURS`).

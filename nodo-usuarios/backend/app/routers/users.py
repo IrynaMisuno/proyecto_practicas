@@ -101,8 +101,12 @@ def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSes
     password_changed = "password" in changes
     if password_changed:
         user.password_hash = hash_password(changes.pop("password"))
-        # Cierra sus sesiones abiertas y anula los enlaces de recuperación pendientes.
+        # Cierra sus sesiones abiertas.
         user.password_changed()
+    # Un enlace pendiente (recuperación o invitación) deja de valer si cambia la contraseña, si se
+    # suspende la cuenta o si cambia el email: se envió a la dirección anterior, quizá equivocada.
+    email_changed = changes.get("email", user.email) != user.email
+    if password_changed or email_changed or changes.get("status") == "suspended":
         db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
 
     for field, value in changes.items():

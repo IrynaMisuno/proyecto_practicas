@@ -145,3 +145,10 @@ def test_smtp_failure_is_logged_without_the_email(monkeypatch: pytest.MonkeyPatc
 
     assert "SMTPRecipientsRefused" in caplog.text
     assert email not in caplog.text
+
+
+def test_changing_the_email_cancels_pending_reset_links(admin: TestClient, outbox: list[dict]):
+    user = create_user(admin, "antigua@example.com")
+    forgot(admin, "antigua@example.com")
+    assert admin.patch(f"/api/users/{user['id']}", json={"email": "nueva@example.com"}).status_code == 200
+    assert reset(admin, token_from(outbox[0])).status_code == 400
