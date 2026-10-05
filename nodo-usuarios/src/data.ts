@@ -1,5 +1,5 @@
 import { ApiError } from "./errors";
-import type { CurrentUser, PermissionInfo, Role, RoleDraft, User, UserDraft } from "./types";
+import type { CurrentUser, NewUserDraft, PermissionInfo, Role, RoleDraft, User, UserDraft } from "./types";
 
 const API_BASE_URL = "/api";
 
@@ -45,7 +45,9 @@ export const logout = () => request<void>("/auth/logout", { method: "POST" });
 export const loadCurrentUser = () => request<CurrentUser>("/auth/me");
 
 export const loadUsers = () => request<User[]>("/users");
-export const createUser = (draft: UserDraft) => request<User>("/users", json("POST", draft));
+// Solo estos campos: la API rechaza la contraseña y el estado en el alta.
+export const createUser = ({ name, email, role_id }: NewUserDraft) => request<User>("/users", json("POST", { name, email, role_id }));
+export const resendInvitation = (userId: string) => request<{ message: string }>(`/users/${encodeURIComponent(userId)}/invitation`, { method: "POST" });
 export const updateUser = (userId: string, draft: Partial<UserDraft>) => request<User>(`/users/${encodeURIComponent(userId)}`, json("PATCH", draft));
 export const deleteUser = (userId: string) => request<void>(`/users/${encodeURIComponent(userId)}`, { method: "DELETE" });
 

@@ -2,11 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { adminRole, ana } from "../test/fixtures";
+import { adminRole, ana, luis } from "../test/fixtures";
 import { UserRow } from "./UserRow";
 
 function renderRow(props: Partial<ComponentProps<typeof UserRow>> = {}) {
-  const handlers = { onEdit: vi.fn(), onDelete: vi.fn() };
+  const handlers = { onEdit: vi.fn(), onDelete: vi.fn(), onResendInvitation: vi.fn() };
   // Una fila solo es válida dentro de una tabla.
   render(<table><tbody><UserRow user={ana} role={adminRole} isSelf={false} canWrite {...handlers} {...props} /></tbody></table>);
   return handlers;
@@ -33,6 +33,21 @@ describe("UserRow", () => {
 
     expect(onEdit).toHaveBeenCalledWith(ana);
     expect(onDelete).toHaveBeenCalledWith(ana);
+  });
+
+  it("permite reenviar la invitación solo a usuarios invitados", async () => {
+    const user = userEvent.setup();
+    const { onResendInvitation } = renderRow({ user: luis });
+
+    await user.click(screen.getByRole("button", { name: "Reenviar invitación a Luis Gómez" }));
+
+    expect(onResendInvitation).toHaveBeenCalledWith(luis);
+  });
+
+  it("no ofrece reenviar la invitación a usuarios activos", () => {
+    renderRow();
+
+    expect(screen.queryByRole("button", { name: /Reenviar invitación/ })).not.toBeInTheDocument();
   });
 
   it("marca tu propia fila y no te deja eliminarte", () => {

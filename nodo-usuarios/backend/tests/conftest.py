@@ -2,6 +2,7 @@ import os
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -15,6 +16,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.database import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.routers import auth  # noqa: E402
 from app.security import login_throttle, reset_throttle  # noqa: E402
 
 ADMIN = {"email": "admin@example.com", "password": "Admin-Pass-2026"}
@@ -41,13 +43,12 @@ def role_id(client: TestClient, name: str) -> str:
     return next(role["id"] for role in client.get("/api/roles").json() if role["name"] == name)
 
 
-def create_user(client: TestClient, email: str, role: str = "Lector", **extra) -> dict:
-    response = client.post("/api/users", json={
-        "name": "Persona de prueba",
-        "email": email,
-        "password": STRONG_PASSWORD,
-        "role_id": role_id(client, role),
-        **extra,
-    })
+def create_user(client: TestClient, email: str, role: str = "Lector", password: str = STRONG_PASSWORD) -> dict:
+    """Invita a un usuario y acepta la invitación con `password`, como haría la persona."""
+    links: list[str] = []
+    with patch.object(auth, "send_invitation_email", lambda to, name, link, hours: links.append(link)):
+        response = client.post("/api/users", json={"name": "Persona de prueba", "email": email, "role_id": role_id(client, role)})
     assert response.status_code == 201, response.json()
-    return response.json()
+    token = links[0].split("#token=", 1)[1]
+    assert client.post("/api/auth/reset-password", json={"token": token, "password": password}).status_code == 200
+    return client.get(f"/api/users/{response.json()['id']}").json()

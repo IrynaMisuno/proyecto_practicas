@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Send, Trash2 } from "lucide-react";
 import { formatDate } from "../format";
 import type { Role, User } from "../types";
 import { Avatar, IconButton, RoleBadge, StatusBadge } from "./ui";
@@ -10,10 +10,11 @@ interface UserRowProps {
   canWrite: boolean;
   onEdit: (user: User) => void;
   onDelete: (user: User) => void;
+  onResendInvitation: (user: User) => void;
 }
 
 /** Fila de la tabla de usuarios. */
-export function UserRow({ user, role, isSelf, canWrite, onEdit, onDelete }: UserRowProps) {
+export function UserRow({ user, role, isSelf, canWrite, onEdit, onDelete, onResendInvitation }: UserRowProps) {
   return (
     <tr className="hover:bg-slate-50/60">
       <td className="px-4 py-3">
@@ -31,6 +32,9 @@ export function UserRow({ user, role, isSelf, canWrite, onEdit, onDelete }: User
       {canWrite && (
         <td className="px-4 py-3">
           <div className="flex justify-end gap-1">
+            {user.status === "invited" && (
+              <IconButton label={`Reenviar invitación a ${user.name}`} title="Reenviar invitación" icon={<Send size={16} />} onClick={() => onResendInvitation(user)} />
+            )}
             <IconButton label={`Editar a ${user.name}`} title="Editar" icon={<Pencil size={16} />} onClick={() => onEdit(user)} />
             <IconButton tone="danger" label={`Eliminar a ${user.name}`} title={isSelf ? "No puedes eliminar tu propia cuenta" : "Eliminar"} icon={<Trash2 size={16} />} disabled={isSelf} onClick={() => onDelete(user)} />
           </div>

@@ -56,4 +56,15 @@ describe("App", () => {
     expect(useResetPassword).toHaveBeenCalledWith("abc123");
     expect(window.location.hash).toBe("");
   });
+
+  it("atiende el enlace de invitación con la pantalla para crear la contraseña", () => {
+    window.history.replaceState(null, "", "/aceptar-invitacion#token=inv456");
+    vi.mocked(useAuth).mockReturnValue(authValue({ user: null }));
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Crea tu contraseña" })).toBeInTheDocument();
+    expect(useResetPassword).toHaveBeenCalledWith("inv456");
+    expect(window.location.pathname).toBe("/aceptar-invitacion");
+    expect(window.location.hash).toBe("");
+  });
 });

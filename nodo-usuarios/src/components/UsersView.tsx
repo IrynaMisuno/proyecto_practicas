@@ -14,11 +14,12 @@ interface UsersViewProps {
   onAdd: () => void;
   onEdit: (user: User) => void;
   onDelete: (user: User) => void;
+  onResendInvitation: (user: User) => void;
 }
 
 const noFilters: UserFilterValues = { query: "", roleId: "all", status: "all" };
 
-export function UsersView({ users, roles, currentUserId, canWrite, onAdd, onEdit, onDelete }: UsersViewProps) {
+export function UsersView({ users, roles, currentUserId, canWrite, onAdd, onEdit, onDelete, onResendInvitation }: UsersViewProps) {
   const [filters, setFilters] = useState(noFilters);
 
   const rolesById = new Map(roles.map((role) => [role.id, role]));
@@ -62,6 +63,7 @@ export function UsersView({ users, roles, currentUserId, canWrite, onAdd, onEdit
                   canWrite={canWrite}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onResendInvitation={onResendInvitation}
                 />
               ))}
             </tbody>

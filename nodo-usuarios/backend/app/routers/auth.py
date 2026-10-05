@@ -2,10 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
 from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..deps import CurrentUser, DbSession
-from ..mailer import send_password_reset_email
+from ..mailer import send_invitation_email, send_password_reset_email
 from ..models import PasswordResetToken, User
 from ..schemas import CurrentUser as CurrentUserOut
 from ..schemas import ForgotPasswordRequest, LoginRequest, MessageOut, ResetPasswordRequest
@@ -24,6 +25,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 FORGOT_MESSAGE = "Si el email pertenece a una cuenta activa, recibirás un enlace para restablecer la contraseña."
 INVALID_RESET_LINK = "El enlace no es válido o ha caducado. Solicita uno nuevo."
+RESET_PATH = "/restablecer-contrasena"
+INVITATION_PATH = "/aceptar-invitacion"
 
 
 def to_current_user(user: User) -> CurrentUserOut:
@@ -49,6 +52,22 @@ def set_session_cookie(response: Response, user: User) -> None:
 
 def as_utc(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def issue_password_link(db: Session, user: User, path: str, lifetime: timedelta) -> str:
+    """Crea un enlace de un solo uso para elegir contraseña y anula los anteriores del usuario."""
+    db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
+    token, token_hash = new_reset_token()
+    db.add(PasswordResetToken(user_id=user.id, token_hash=token_hash, expires_at=datetime.now(UTC) + lifetime))
+    db.commit()
+    # El token va en el fragmento (#): el navegador no lo envía al servidor ni en el Referer.
+    return f"{get_settings().frontend_url.rstrip('/')}{path}#token={token}"
+
+
+def send_invitation(db: Session, user: User, background: BackgroundTasks) -> None:
+    hours = get_settings().invite_token_hours
+    link = issue_password_link(db, user, INVITATION_PATH, timedelta(hours=hours))
+    background.add_task(send_invitation_email, user.email, user.name, link, hours)
 
 
 @router.post("/login")
@@ -90,19 +109,7 @@ def forgot_password(payload: ForgotPasswordRequest, background: BackgroundTasks,
         return MessageOut(message=FORGOT_MESSAGE)
 
     reset_throttle.record_failure(email)
-    settings = get_settings()
-    # Un enlace nuevo anula los anteriores.
-    db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
-    token, token_hash = new_reset_token()
-    db.add(PasswordResetToken(
-        user_id=user.id,
-        token_hash=token_hash,
-        expires_at=datetime.now(UTC) + timedelta(minutes=settings.reset_token_minutes),
-    ))
-    db.commit()
-
-    # El token va en el fragmento (#): el navegador no lo envía al servidor ni en el Referer.
-    link = f"{settings.frontend_url.rstrip('/')}/restablecer-contrasena#token={token}"
+    link = issue_password_link(db, user, RESET_PATH, timedelta(minutes=get_settings().reset_token_minutes))
     background.add_task(send_password_reset_email, user.email, user.name, link)
     return MessageOut(message=FORGOT_MESSAGE)
 
@@ -115,12 +122,18 @@ def reset_password(payload: ResetPasswordRequest, db: DbSession) -> MessageOut:
         PasswordResetToken.used_at.is_(None),
     ))
     user = db.get(User, record.user_id) if record else None
-    if record is None or as_utc(record.expires_at) < now or user is None or user.status != "active":
+    # Sirve para recuperar la contraseña (usuarios activos) y para aceptar una invitación (invitados).
+    if record is None or as_utc(record.expires_at) < now or user is None or user.status not in ("active", "invited"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, INVALID_RESET_LINK)
 
+    accepting_invitation = user.status == "invited"
     user.password_hash = hash_password(payload.password)
     user.password_changed()  # cierra las sesiones abiertas con la contraseña anterior
+    if accepting_invitation:
+        user.status = "active"
     record.used_at = now
     db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id, PasswordResetToken.id != record.id))
     db.commit()
+    if accepting_invitation:
+        return MessageOut(message="Cuenta activada. Ya puedes iniciar sesión.")
     return MessageOut(message="Contraseña actualizada. Ya puedes iniciar sesión.")

@@ -92,19 +92,16 @@ def test_passwords_are_stored_with_argon2id(admin: TestClient):
 
 def test_duplicate_email_is_rejected_case_insensitively(admin: TestClient):
     create_user(admin, "repetido@example.com")
-    response = admin.post("/api/users", json={
-        "name": "Otra", "email": "REPETIDO@example.com", "password": STRONG_PASSWORD, "role_id": role_id(admin, "Lector"),
-    })
+    response = admin.post("/api/users", json={"name": "Otra", "email": "REPETIDO@example.com", "role_id": role_id(admin, "Lector")})
     assert response.status_code == 409
     other = create_user(admin, "otro@example.com")
     assert admin.patch(f"/api/users/{other['id']}", json={"email": "Repetido@Example.com"}).status_code == 409
 
 
 def test_weak_passwords_are_rejected(admin: TestClient):
+    user = create_user(admin, "debil@example.com")
     for weak in ["Corta-1", "sinmayusculas-123", "SINMINUSCULAS-123", "SinNumeros-abc", "SinSimbolos123"]:
-        response = admin.post("/api/users", json={
-            "name": "Débil", "email": "debil@example.com", "password": weak, "role_id": role_id(admin, "Lector"),
-        })
+        response = admin.patch(f"/api/users/{user['id']}", json={"password": weak})
         assert response.status_code == 422, weak
         assert "password" in response.json()["fields"]
 
@@ -124,7 +121,7 @@ def test_unknown_fields_like_password_hash_are_rejected(admin: TestClient):
 
 
 def test_invalid_email_and_role_are_rejected(admin: TestClient):
-    base = {"name": "X", "password": STRONG_PASSWORD, "role_id": role_id(admin, "Lector")}
+    base = {"name": "X", "role_id": role_id(admin, "Lector")}
     assert admin.post("/api/users", json={**base, "email": "no-es-email"}).status_code == 422
     assert admin.post("/api/users", json={**base, "email": "ok@example.com", "role_id": "no-existe"}).status_code == 422
 
@@ -151,9 +148,7 @@ def test_reader_can_read_but_not_write(admin: TestClient):
 
     assert admin.get("/api/users").status_code == 200
     assert admin.get("/api/roles").status_code == 200
-    assert admin.post("/api/users", json={
-        "name": "X", "email": "x@example.com", "password": STRONG_PASSWORD, "role_id": role_id(admin, "Lector"),
-    }).status_code == 403
+    assert admin.post("/api/users", json={"name": "X", "email": "x@example.com", "role_id": role_id(admin, "Lector")}).status_code == 403
     assert admin.post("/api/roles", json={"name": "Nuevo"}).status_code == 403
 
 

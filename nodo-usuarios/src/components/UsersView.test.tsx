@@ -6,7 +6,7 @@ import { ana, roles, users } from "../test/fixtures";
 import { UsersView } from "./UsersView";
 
 function renderView(props: Partial<ComponentProps<typeof UsersView>> = {}) {
-  const handlers = { onAdd: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn() };
+  const handlers = { onAdd: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn(), onResendInvitation: vi.fn() };
   render(<UsersView users={users} roles={roles} currentUserId={ana.id} canWrite {...handlers} {...props} />);
   return handlers;
 }

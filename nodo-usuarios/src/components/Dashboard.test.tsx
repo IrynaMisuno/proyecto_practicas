@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { usePermissions } from "../hooks/usePermissions";
 import { useRoles } from "../hooks/useRoles";
 import { useUsers } from "../hooks/useUsers";
+import { ApiError } from "../errors";
 import { authValue, currentAdmin, luis, permissions, roles, users } from "../test/fixtures";
 import { Dashboard } from "./Dashboard";
 
@@ -14,7 +15,7 @@ vi.mock("../hooks/useRoles");
 vi.mock("../hooks/usePermissions");
 
 function mockUsers(state: Partial<ReturnType<typeof useUsers>> = {}) {
-  const hook = { users, error: "", reload: vi.fn(), createUser: vi.fn(), updateUser: vi.fn(), deleteUser: vi.fn().mockResolvedValue(undefined), ...state };
+  const hook = { users, error: "", reload: vi.fn(), createUser: vi.fn(), updateUser: vi.fn(), deleteUser: vi.fn().mockResolvedValue(undefined), resendInvitation: vi.fn().mockResolvedValue(undefined), ...state };
   vi.mocked(useUsers).mockReturnValue(hook);
   return hook;
 }
@@ -69,5 +70,40 @@ describe("Dashboard", () => {
 
     expect(hook.deleteUser).toHaveBeenCalledWith(luis.id);
     expect(await screen.findByRole("status")).toHaveTextContent("Usuario eliminado.");
+  });
+
+  it("invita a un usuario nuevo y lo anuncia", async () => {
+    const user = userEvent.setup();
+    const hook = mockUsers({ createUser: vi.fn().mockResolvedValue(undefined) });
+    render(<Dashboard currentUser={currentAdmin} />);
+
+    await user.click(screen.getByRole("button", { name: "Añadir usuario" }));
+    await user.type(screen.getByLabelText("Nombre completo"), "Marta Díaz");
+    await user.type(screen.getByLabelText("Email"), "marta@example.com");
+    await user.click(screen.getByRole("button", { name: "Enviar invitación" }));
+
+    expect(hook.createUser).toHaveBeenCalledWith({ name: "Marta Díaz", email: "marta@example.com", role_id: roles[0].id });
+    expect(await screen.findByRole("status")).toHaveTextContent("Invitación enviada a marta@example.com.");
+  });
+
+  it("reenvía la invitación y lo anuncia", async () => {
+    const user = userEvent.setup();
+    const hook = mockUsers();
+    render(<Dashboard currentUser={currentAdmin} />);
+
+    await user.click(screen.getByRole("button", { name: "Reenviar invitación a Luis Gómez" }));
+
+    expect(hook.resendInvitation).toHaveBeenCalledWith(luis.id);
+    expect(await screen.findByRole("status")).toHaveTextContent("Invitación reenviada a Luis Gómez.");
+  });
+
+  it("anuncia si no se pudo reenviar la invitación", async () => {
+    const user = userEvent.setup();
+    mockUsers({ resendInvitation: vi.fn().mockRejectedValue(new ApiError("Solo se puede reenviar la invitación a usuarios invitados.", 409)) });
+    render(<Dashboard currentUser={currentAdmin} />);
+
+    await user.click(screen.getByRole("button", { name: "Reenviar invitación a Luis Gómez" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Solo se puede reenviar la invitación a usuarios invitados.");
   });
 });

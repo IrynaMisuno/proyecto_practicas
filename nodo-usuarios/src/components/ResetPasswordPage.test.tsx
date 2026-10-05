@@ -69,4 +69,19 @@ describe("ResetPasswordPage", () => {
 
     expect(onDone).not.toHaveBeenCalled();
   });
+
+  it("en una invitación pide crear la contraseña", () => {
+    mockHook();
+    render(<ResetPasswordPage token="abc" mode="invite" onDone={vi.fn()} onBack={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "Crea tu contraseña" })).toBeInTheDocument();
+    expect(screen.getByText("Con ella entrarás en Nodo.")).toBeInTheDocument();
+  });
+
+  it("en una invitación sin token indica que la reenvíe un administrador", () => {
+    mockHook();
+    render(<ResetPasswordPage token="" mode="invite" onDone={vi.fn()} onBack={vi.fn()} />);
+
+    expect(screen.getByText(/pide a un administrador que te reenvíe la invitación/)).toBeInTheDocument();
+  });
 });

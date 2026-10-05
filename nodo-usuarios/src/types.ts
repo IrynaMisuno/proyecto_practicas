@@ -30,10 +30,14 @@ export interface PermissionInfo {
   label: string;
 }
 
-export interface UserDraft {
+/** Alta por invitación: la persona elige su contraseña con el enlace del email. */
+export interface NewUserDraft {
   name: string;
   email: string;
   role_id: string;
+}
+
+export interface UserDraft extends NewUserDraft {
   status: UserStatus;
   password?: string;
 }

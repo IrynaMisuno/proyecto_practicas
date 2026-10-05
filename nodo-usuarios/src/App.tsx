@@ -6,17 +6,24 @@ import { LoginPage } from "./components/LoginPage";
 import { ResetPasswordPage } from "./components/ResetPasswordPage";
 import { useAuth } from "./hooks/useAuth";
 
-type PublicPage = { name: "login"; notice?: string } | { name: "forgot" } | { name: "reset"; token: string };
+type PasswordLinkMode = "reset" | "invite";
+type PublicPage = { name: "login"; notice?: string } | { name: "forgot" } | { name: "reset"; token: string; mode: PasswordLinkMode };
 
-const RESET_PATH = "/restablecer-contrasena";
+// Rutas de los enlaces que llegan por email: recuperar la contraseña y aceptar una invitación.
+const LINK_PATHS: Record<string, PasswordLinkMode> = {
+  "/restablecer-contrasena": "reset",
+  "/aceptar-invitacion": "invite",
+};
 
 function initialPublicPage(): PublicPage {
-  if (window.location.pathname !== RESET_PATH) return { name: "login" };
+  const path = window.location.pathname;
+  const mode = LINK_PATHS[path];
+  if (!mode) return { name: "login" };
   // El token llega en el fragmento (#token=...). Se guarda en memoria y se quita de la barra
   // de direcciones para que no quede en el historial.
   const token = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
-  window.history.replaceState(null, "", RESET_PATH);
-  return { name: "reset", token };
+  window.history.replaceState(null, "", path);
+  return { name: "reset", token, mode };
 }
 
 function goTo(path: string) {
@@ -36,11 +43,12 @@ export default function App() {
   if (loading) {
     return <div className="grid min-h-screen place-items-center text-slate-400"><LoaderCircle className="animate-spin" aria-label="Cargando" /></div>;
   }
-  // Un enlace de recuperación se atiende aunque haya una sesión abierta en este navegador.
+  // Un enlace de recuperación o de invitación se atiende aunque haya una sesión abierta en este navegador.
   if (page.name === "reset") {
     return (
       <ResetPasswordPage
         token={page.token}
+        mode={page.mode}
         onBack={() => showLogin()}
         onDone={(message) => {
           void logout();

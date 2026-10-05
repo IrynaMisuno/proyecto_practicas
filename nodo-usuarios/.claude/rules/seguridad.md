@@ -25,7 +25,7 @@ Referencias: OWASP ASVS 5.0 (capítulos de autenticación, sesión, control de a
 ## Datos personales (RGPD + LOPDGDD)
 - Nombre y email son datos personales: guarda solo los campos necesarios y justifica cualquier campo personal nuevo.
 - Borrar un usuario debe eliminar también sus datos asociados (p. ej. `PasswordResetToken`), no solo ocultarlo.
-- No escribas emails ni nombres en los logs, salvo el enlace de recuperación en desarrollo (`mailer.py` sin SMTP).
+- No escribas emails ni nombres en los logs, salvo los enlaces de recuperación e invitación en desarrollo (`mailer.py` sin SMTP).
 
 ## Secretos (Twelve-Factor: configuración en el entorno)
 - Los secretos solo van en `backend/.env`. Cada variable nueva va también en `.env.example`, con un valor de ejemplo, y en `app/config.py`.

@@ -73,11 +73,10 @@ class MessageOut(BaseModel):
 
 
 class UserCreate(StrictModel):
+    """Alta por invitación: la persona elige su contraseña con el enlace que recibe por email."""
     name: Name
     email: Email
-    password: Password
     role_id: str
-    status: UserStatus = "active"
 
 
 class UserUpdate(StrictModel):

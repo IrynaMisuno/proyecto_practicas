@@ -42,7 +42,7 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | `format.ts` | Fechas, iniciales, nombres de estado y orden por nombre. |
 | `hooks/useAuth.tsx` | `AuthProvider` y `useAuth`: usuario actual, `login`, `logout`, `can(permiso)`. |
 | `hooks/useUsers.ts`, `useRoles.ts`, `usePermissions.ts` | Datos del panel y sus operaciones; llaman a `data.ts`. |
-| `hooks/useForgotPassword.ts`, `useResetPassword.ts` | Recuperación de contraseña (`/restablecer-contrasena`). |
+| `hooks/useForgotPassword.ts`, `useResetPassword.ts` | Recuperación de contraseña (`/restablecer-contrasena`) y aceptación de invitaciones (`/aceptar-invitacion`). |
 | `hooks/useToast.ts` | Avisos temporales. |
 | `components/Dashboard.tsx` | Panel con sesión: secciones, carga de datos y diálogos. |
 | `components/Sidebar.tsx` | Navegación y cierre de sesión. |
@@ -50,7 +50,7 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | `components/RolesView.tsx` | Vista de roles: una `RoleCard` por rol con sus permisos y usuarios asignados. |
 | `components/UserDialog.tsx`, `RoleDialog.tsx` | Formularios de alta y edición, con los errores del servidor junto a cada campo. |
 | `components/LoginPage.tsx` | Inicio de sesión con el enlace «¿Has olvidado tu contraseña?». |
-| `components/ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | Solicitud del enlace y elección de la contraseña nueva. |
+| `components/ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | Solicitud del enlace y elección de la contraseña nueva, o de la primera al aceptar una invitación. |
 | `components/PasswordChecklist.tsx` | Requisitos de contraseña en vivo; la misma política que el backend. |
 | `components/AuthShell.tsx`, `BackToLogin.tsx` | Marco común de las pantallas sin sesión. |
 | `components/ui/` | Piezas genéricas exportadas desde `index.ts`: `Modal`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, insignias, `Toast`, etc., y los estilos. |
@@ -82,11 +82,12 @@ Todas las rutas empiezan por `/api`. Salvo el login, todas exigen sesión (401 s
 | `POST` | `/auth/logout` | — | Borra la cookie. |
 | `GET` | `/auth/me` | sesión | Usuario actual con su rol y permisos. |
 | `POST` | `/auth/forgot-password` | — | `{"email"}`; responde siempre 202 con el mismo mensaje. |
-| `POST` | `/auth/reset-password` | — | `{"token", "password"}`; 400 si el enlace no es válido o ha caducado. |
+| `POST` | `/auth/reset-password` | — | `{"token", "password"}`; recupera la contraseña o acepta una invitación (la cuenta pasa a `active`). 400 si el enlace no es válido o ha caducado. |
 | `GET` | `/users` | `users:read` | Lista de usuarios. |
 | `GET` | `/users/{id}` | `users:read` | Un usuario. |
-| `POST` | `/users` | `users:write` | `{"name", "email", "password", "role_id", "status"}`. |
-| `PATCH` | `/users/{id}` | `users:write` | Cualquier subconjunto de los campos anteriores; `password` es opcional. |
+| `POST` | `/users` | `users:write` | `{"name", "email", "role_id"}`; crea el usuario como `invited` y le envía la invitación por email. No acepta `password` ni `status`. |
+| `POST` | `/users/{id}/invitation` | `users:write` | Reenvía la invitación (202) y anula el enlace anterior; 409 si el usuario no está invitado. |
+| `PATCH` | `/users/{id}` | `users:write` | Cualquier subconjunto de `{"name", "email", "role_id", "status", "password"}`. |
 | `DELETE` | `/users/{id}` | `users:write` | Elimina un usuario. |
 | `GET` | `/roles` | sesión | Lista de roles. |
 | `POST` | `/roles` | `roles:write` | `{"name", "description", "tone", "permissions"}`. |
@@ -109,12 +110,16 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
   - Caduca a los 30 minutos (`RESET_TOKEN_MINUTES`), es de un solo uso y pedir uno nuevo anula los anteriores.
   - Va en el fragmento de la URL (`#token=…`): el navegador no lo envía al servidor ni en el `Referer`, y la interfaz lo borra de la barra de direcciones al abrir la página.
   - Al cambiar la contraseña, por recuperación o desde el panel, se incrementa `session_version` y se cierran todas las sesiones abiertas de ese usuario.
+- **Alta por invitación**:
+  - El administrador nunca conoce ni elige la contraseña de otra persona: el usuario se crea como `invited`, con una contraseña aleatoria que nadie conoce, y recibe un enlace para elegir la suya.
+  - El enlace usa el mismo mecanismo que la recuperación (token de 256 bits, solo se guarda el SHA-256, un solo uso, en el fragmento de la URL), pero va a `/aceptar-invitacion` y caduca a las 24 horas (`INVITE_TOKEN_HOURS`).
+  - Al aceptarla, la cuenta pasa a `active`. Reenviarla anula el enlace anterior. Un usuario suspendido no puede aceptarla y un invitado no puede pedir el enlace de recuperación.
 - **Entrada estricta**: se rechazan los campos desconocidos, así que no se puede enviar `password_hash`, `id` ni fechas.
 - **Emails únicos**: se normalizan a minúsculas, y una restricción `UNIQUE` en la base de datos cubre las altas simultáneas.
 - **Integridad**: no puedes eliminarte ni desactivarte, no se borran roles asignados y siempre debe quedar un usuario activo con `users:write` y `roles:write`.
 - **Cabeceras**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Cache-Control: no-store` en la API.
 
-Correo: sin `SMTP_HOST`, el enlace de recuperación se escribe en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.
+Correo: sin `SMTP_HOST`, los enlaces de recuperación y de invitación se escriben en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.
 
 Límites conocidos: el bloqueo de intentos vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias). Para producción, sirve todo por HTTPS con `COOKIE_SECURE=true` y usa migraciones (Alembic) en lugar de `create_all`.
 

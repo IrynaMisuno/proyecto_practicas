@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
 import { ShieldCheck, Users } from "lucide-react";
+import { errorMessage } from "../errors";
 import { useAuth } from "../hooks/useAuth";
 import { usePermissions } from "../hooks/usePermissions";
 import { useRoles } from "../hooks/useRoles";
 import { useToast } from "../hooks/useToast";
 import { useUsers } from "../hooks/useUsers";
-import type { CurrentUser, Role, RoleDraft, User, UserDraft } from "../types";
+import type { CurrentUser, NewUserDraft, Role, RoleDraft, User, UserDraft } from "../types";
 import { RoleDialog } from "./RoleDialog";
 import { RolesView } from "./RolesView";
 import { Sidebar, type Section, type SidebarSection } from "./Sidebar";
@@ -33,7 +34,7 @@ export function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
   const [section, setSection] = useState<Section>(canReadUsers ? "users" : "roles");
   const activeSection = sections.some((item) => item.id === section) ? section : sections[0]?.id;
 
-  const { users, error: usersError, reload: reloadUsers, createUser, updateUser, deleteUser } = useUsers(canReadUsers);
+  const { users, error: usersError, reload: reloadUsers, createUser, updateUser, deleteUser, resendInvitation } = useUsers(canReadUsers);
   const { roles, error: rolesError, reload: reloadRoles, createRole, updateRole, deleteRole } = useRoles();
   const { permissions, error: permissionsError, reload: reloadPermissions } = usePermissions();
   const { message: notice, announce } = useToast();
@@ -48,7 +49,7 @@ export function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
     void reloadPermissions();
   }
 
-  async function saveUser(draft: UserDraft, existing?: User) {
+  async function saveUser(draft: NewUserDraft | UserDraft, existing?: User) {
     if (existing) {
       await updateUser(existing.id, draft);
       // Si me cambio a mí mismo el rol, mis permisos cambian.
@@ -56,9 +57,18 @@ export function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
       announce("Usuario actualizado.");
     } else {
       await createUser(draft);
-      announce("Usuario creado.");
+      announce(`Invitación enviada a ${draft.email}.`);
     }
     setDialog(null);
+  }
+
+  async function resend(user: User) {
+    try {
+      await resendInvitation(user.id);
+      announce(`Invitación reenviada a ${user.name}.`);
+    } catch (caught) {
+      announce(errorMessage(caught, "No se pudo reenviar la invitación."));
+    }
   }
 
   async function saveRole(draft: RoleDraft, existing?: Role) {
@@ -95,6 +105,7 @@ export function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
               onAdd={() => setDialog({ kind: "user" })}
               onEdit={(user) => setDialog({ kind: "user", user })}
               onDelete={(user) => setDialog({ kind: "delete-user", user })}
+              onResendInvitation={(user) => void resend(user)}
             />
           )}
           {activeSection === "roles" && (

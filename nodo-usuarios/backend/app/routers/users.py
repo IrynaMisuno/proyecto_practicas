@@ -1,6 +1,7 @@
+import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -8,9 +9,9 @@ from sqlalchemy.orm import Session
 from ..deps import DbSession, require_permission
 from ..models import PasswordResetToken, Role, User
 from ..rules import ensure_admin_remains
-from ..schemas import UserCreate, UserOut, UserUpdate
+from ..schemas import MessageOut, UserCreate, UserOut, UserUpdate
 from ..security import hash_password
-from .auth import set_session_cookie
+from .auth import send_invitation, set_session_cookie
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -59,20 +60,31 @@ def get_user(user_id: str, db: DbSession, _: Reader) -> UserOut:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_user(payload: UserCreate, db: DbSession, _: Writer) -> UserOut:
+def create_user(payload: UserCreate, background: BackgroundTasks, db: DbSession, _: Writer) -> UserOut:
     ensure_role_exists(db, payload.role_id)
     ensure_email_available(db, payload.email)
     user = User(
         name=payload.name,
         email=payload.email,
-        password_hash=hash_password(payload.password),
+        # Contraseña aleatoria que nadie conoce: no se puede entrar hasta aceptar la invitación.
+        password_hash=hash_password(secrets.token_urlsafe(32)),
         role_id=payload.role_id,
-        status=payload.status,
+        status="invited",
     )
     db.add(user)
     commit_or_conflict(db)
+    send_invitation(db, user, background)
     db.refresh(user)
     return UserOut.model_validate(user)
+
+
+@router.post("/{user_id}/invitation", status_code=status.HTTP_202_ACCEPTED)
+def resend_invitation(user_id: str, background: BackgroundTasks, db: DbSession, _: Writer) -> MessageOut:
+    user = get_user_or_404(db, user_id)
+    if user.status != "invited":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Solo se puede reenviar la invitación a usuarios invitados.")
+    send_invitation(db, user, background)  # el enlace nuevo anula el anterior
+    return MessageOut(message="Invitación reenviada.")
 
 
 @router.patch("/{user_id}")

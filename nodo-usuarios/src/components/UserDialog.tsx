@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ApiError, errorMessage } from "../errors";
 import { statusLabels } from "../format";
-import type { Role, User, UserDraft, UserStatus } from "../types";
+import type { NewUserDraft, Role, User, UserDraft, UserStatus } from "../types";
 import { PasswordChecklist, isStrongPassword } from "./PasswordChecklist";
 import { Field, FormError, Modal, buttonStyles, inputStyles } from "./ui";
 
@@ -10,7 +10,8 @@ interface UserDialogProps {
   roles: Role[];
   isSelf: boolean;
   onClose: () => void;
-  onSubmit: (draft: UserDraft) => Promise<void>;
+  /** Al crear solo se envían nombre, email y rol: la persona elige su contraseña con la invitación. */
+  onSubmit: (draft: NewUserDraft | UserDraft) => Promise<void>;
 }
 
 export function UserDialog({ user, roles, isSelf, onClose, onSubmit }: UserDialogProps) {
@@ -27,7 +28,6 @@ export function UserDialog({ user, roles, isSelf, onClose, onSubmit }: UserDialo
 
   const password = draft.password ?? "";
   const passwordValid = isStrongPassword(password);
-  const passwordRequired = !user;
 
   function update<K extends keyof UserDraft>(field: K, value: UserDraft[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -36,14 +36,15 @@ export function UserDialog({ user, roles, isSelf, onClose, onSubmit }: UserDialo
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if ((passwordRequired || password) && !passwordValid) {
+    if (user && password && !passwordValid) {
       setFieldErrors((current) => ({ ...current, password: "La contraseña no cumple los requisitos." }));
       return;
     }
     setSaving(true);
     setFormError("");
     try {
-      await onSubmit({ ...draft, name: draft.name.trim(), email: draft.email.trim(), password: password || undefined });
+      const identity = { name: draft.name.trim(), email: draft.email.trim(), role_id: draft.role_id };
+      await onSubmit(user ? { ...draft, ...identity, password: password || undefined } : identity);
     } catch (caught) {
       if (caught instanceof ApiError && Object.keys(caught.fields).length) setFieldErrors(caught.fields);
       else if (caught instanceof ApiError && caught.status === 409 && caught.message.includes("email")) setFieldErrors({ email: caught.message });
@@ -53,7 +54,7 @@ export function UserDialog({ user, roles, isSelf, onClose, onSubmit }: UserDialo
   }
 
   return (
-    <Modal title={user ? "Editar usuario" : "Nuevo usuario"} description={user ? user.email : "La persona podrá entrar con su email y esta contraseña."} onClose={onClose}>
+    <Modal title={user ? "Editar usuario" : "Nuevo usuario"} description={user ? user.email : "Recibirá un email con un enlace para elegir su contraseña."} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <FormError message={formError} />
         <Field label="Nombre completo" error={fieldErrors.name}>
@@ -62,29 +63,35 @@ export function UserDialog({ user, roles, isSelf, onClose, onSubmit }: UserDialo
         <Field label="Email" error={fieldErrors.email}>
           <input className={inputStyles} type="email" required maxLength={254} autoComplete="off" value={draft.email} aria-invalid={Boolean(fieldErrors.email)} onChange={(event) => update("email", event.target.value)} placeholder="nombre@empresa.com" />
         </Field>
-        <Field
-          label={user ? "Nueva contraseña (opcional)" : "Contraseña"}
-          error={fieldErrors.password}
-          hint={user && !password ? <span className="block text-sm text-slate-500">Déjala vacía para mantener la actual.</span> : undefined}
-        >
-          <input className={inputStyles} type="password" autoComplete="new-password" required={passwordRequired} maxLength={128} value={password} aria-invalid={Boolean(fieldErrors.password)} onChange={(event) => update("password", event.target.value)} />
-        </Field>
-        {(passwordRequired || password) && <PasswordChecklist password={password} />}
-        <div className="grid gap-4 sm:grid-cols-2">
+        {user && (
+          <>
+            <Field
+              label="Nueva contraseña (opcional)"
+              error={fieldErrors.password}
+              hint={!password ? <span className="block text-sm text-slate-500">Déjala vacía para mantener la actual.</span> : undefined}
+            >
+              <input className={inputStyles} type="password" autoComplete="new-password" maxLength={128} value={password} aria-invalid={Boolean(fieldErrors.password)} onChange={(event) => update("password", event.target.value)} />
+            </Field>
+            {password && <PasswordChecklist password={password} />}
+          </>
+        )}
+        <div className={user ? "grid gap-4 sm:grid-cols-2" : ""}>
           <Field label="Rol" error={fieldErrors.role_id}>
             <select className={inputStyles} value={draft.role_id} onChange={(event) => update("role_id", event.target.value)}>
               {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
             </select>
           </Field>
-          <Field label="Estado" error={fieldErrors.status} hint={isSelf ? <span className="block text-sm text-slate-500">No puedes desactivar tu cuenta.</span> : undefined}>
-            <select className={inputStyles} value={draft.status} disabled={isSelf} onChange={(event) => update("status", event.target.value as UserStatus)}>
-              {(Object.keys(statusLabels) as UserStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-            </select>
-          </Field>
+          {user && (
+            <Field label="Estado" error={fieldErrors.status} hint={isSelf ? <span className="block text-sm text-slate-500">No puedes desactivar tu cuenta.</span> : undefined}>
+              <select className={inputStyles} value={draft.status} disabled={isSelf} onChange={(event) => update("status", event.target.value as UserStatus)}>
+                {(Object.keys(statusLabels) as UserStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
+              </select>
+            </Field>
+          )}
         </div>
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" className={buttonStyles.secondary} onClick={onClose}>Cancelar</button>
-          <button type="submit" className={buttonStyles.primary} disabled={saving || roles.length === 0}>{saving ? "Guardando…" : user ? "Guardar cambios" : "Crear usuario"}</button>
+          <button type="submit" className={buttonStyles.primary} disabled={saving || roles.length === 0}>{user ? (saving ? "Guardando…" : "Guardar cambios") : (saving ? "Enviando…" : "Enviar invitación")}</button>
         </div>
       </form>
     </Modal>

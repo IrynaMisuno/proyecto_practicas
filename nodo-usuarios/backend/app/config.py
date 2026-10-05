@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Recuperación de contraseña
     frontend_url: str = "http://localhost:5173"
     reset_token_minutes: int = 30
+    invite_token_hours: int = 24
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_user: str | None = None

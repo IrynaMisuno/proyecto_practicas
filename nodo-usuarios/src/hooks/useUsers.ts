@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import * as api from "../data";
 import { errorMessage } from "../errors";
 import { compareByName } from "../format";
-import type { User, UserDraft } from "../types";
+import type { NewUserDraft, User, UserDraft } from "../types";
 
 /** Usuarios y sus operaciones. Con `enabled` a false no se cargan (el rol no tiene `users:read`). */
 export function useUsers(enabled: boolean) {
@@ -26,7 +26,7 @@ export function useUsers(enabled: boolean) {
     void reload();
   }, [reload]);
 
-  async function createUser(draft: UserDraft) {
+  async function createUser(draft: NewUserDraft) {
     const created = await api.createUser(draft);
     setUsers((current) => [...(current ?? []), created].sort(compareByName));
   }
@@ -41,5 +41,9 @@ export function useUsers(enabled: boolean) {
     setUsers((current) => current?.filter((item) => item.id !== userId) ?? null);
   }
 
-  return { users, error, reload, createUser, updateUser, deleteUser };
+  async function resendInvitation(userId: string) {
+    await api.resendInvitation(userId);
+  }
+
+  return { users, error, reload, createUser, updateUser, deleteUser, resendInvitation };
 }
