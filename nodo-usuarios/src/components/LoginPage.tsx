@@ -35,7 +35,7 @@ export function LoginPage({ notice, noticeTone = "success", onForgotPassword }: 
   return (
     <AuthShell title="Inicia sesión en Nodo" subtitle="Panel de administración de usuarios">
       <form onSubmit={handleSubmit} className="space-y-5">
-        {notice && !error && <p className={`rounded-lg px-3 py-2 text-sm ring-1 ring-inset ${noticeTone === "warning" ? "bg-amber-50 text-amber-900 ring-amber-600/20" : "bg-emerald-50 text-emerald-800 ring-emerald-600/20"}`} role="status">{notice}</p>}
+        {notice && !error && <p className={`rounded-lg px-3 py-2 text-sm ring-1 ring-inset ${noticeTone === "warning" ? "bg-amber-50 text-amber-900 ring-amber-600/20" : "bg-mint-50 text-mint-800 ring-mint-600/20"}`} role="status">{notice}</p>}
         <FormError message={error} />
         <Field label="Email">
           <input className={inputStyles} type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nombre@empresa.com" />

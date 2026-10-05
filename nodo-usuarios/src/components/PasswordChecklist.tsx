@@ -19,7 +19,7 @@ export function PasswordChecklist({ password }: { password: string }) {
       {passwordRules.map((rule) => {
         const ok = rule.test(password);
         return (
-          <li key={rule.label} className={`flex items-center gap-2 ${ok ? "text-emerald-700" : "text-slate-500"}`}>
+          <li key={rule.label} className={`flex items-center gap-2 ${ok ? "text-mint-700" : "text-slate-500"}`}>
             {ok ? <Check size={14} aria-hidden /> : <Circle size={14} aria-hidden />}
             {rule.label}<span className="sr-only">{ok ? ": cumplido" : ": pendiente"}</span>
           </li>

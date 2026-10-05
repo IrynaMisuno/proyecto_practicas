@@ -2,7 +2,7 @@ import { statusLabels } from "../../format";
 import type { UserStatus } from "../../types";
 
 const statusStyles: Record<UserStatus, string> = {
-  active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  active: "bg-mint-50 text-mint-800 ring-mint-600/20",
   invited: "bg-amber-50 text-amber-800 ring-amber-600/20",
   suspended: "bg-slate-100 text-slate-600 ring-slate-500/20",
 };
