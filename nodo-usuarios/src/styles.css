@@ -1,13 +1,35 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Verde menta / aguamarina de la marca. Texto blanco solo sobre 700 o más oscuro;
+     sobre 300-400 (botón principal) el texto va en 950 (contraste ≥ 4.5:1). */
+  --color-mint-50: #f3fcfa;
+  --color-mint-100: #d5f6ee;
+  --color-mint-200: #aaeddc;
+  --color-mint-300: #77dfc6;
+  --color-mint-400: #48cbb0;
+  --color-mint-500: #25b096;
+  --color-mint-600: #178d79;
+  --color-mint-700: #147264;
+  --color-mint-800: #145b51;
+  --color-mint-900: #134b44;
+  --color-mint-950: #062d28;
+}
 
 @layer base {
   html {
     @apply bg-mint-50 text-slate-900 antialiased;
   }
 
+  /* Tailwind 4 deja los botones con el cursor por defecto; se recupera la mano de Tailwind 3. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   :focus-visible {
-    @apply outline-none ring-2 ring-mint-600 ring-offset-2;
+    @apply outline-hidden ring-2 ring-mint-600 ring-offset-2;
   }
 }

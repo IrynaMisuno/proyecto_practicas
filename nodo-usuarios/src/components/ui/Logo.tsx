@@ -1,6 +1,6 @@
 const logoSizes = {
   sm: "h-8 w-8 rounded-lg text-sm",
-  lg: "h-11 w-11 rounded-xl text-lg shadow-sm",
+  lg: "h-11 w-11 rounded-xl text-lg shadow-xs",
 };
 
 /** Marca de Nodo. Es decorativa: el nombre de la app aparece en el texto de al lado o en el título. */

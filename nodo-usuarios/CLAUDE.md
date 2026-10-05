@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Nodo: panel de administración de usuarios y roles. Front-end React 19 + TypeScript + Vite + Tailwind 3 en `src/`; API FastAPI + SQLAlchemy 2 + SQLite en `backend/`. Arquitectura, API y medidas de seguridad: `docs/guia-del-proyecto.md`.
+Nodo: panel de administración de usuarios y roles. Front-end React 19 + TypeScript + Vite + Tailwind 4 en `src/`; API FastAPI + SQLAlchemy 2 + SQLite en `backend/`. Arquitectura, API y medidas de seguridad: `docs/guia-del-proyecto.md`.
 
 Las normas de cada apartado están en `.claude/rules/` y se cargan solas según los archivos que se toquen.
 

@@ -4,14 +4,14 @@ const buttonBase = "inline-flex items-center justify-center gap-2 rounded-lg px-
 const iconBase = "inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
 
 export const buttonStyles = {
-  primary: `${buttonBase} bg-mint-300 text-mint-950 shadow-sm hover:bg-mint-400`,
-  secondary: `${buttonBase} border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50`,
-  danger: `${buttonBase} bg-rose-600 text-white shadow-sm hover:bg-rose-500`,
+  primary: `${buttonBase} bg-mint-300 text-mint-950 shadow-xs hover:bg-mint-400`,
+  secondary: `${buttonBase} border border-slate-300 bg-white text-slate-700 shadow-xs hover:bg-slate-50`,
+  danger: `${buttonBase} bg-rose-600 text-white shadow-xs hover:bg-rose-500`,
   icon: iconBase,
   iconDanger: `${iconBase} hover:bg-rose-50 hover:text-rose-600`,
 };
 
-export const inputStyles = "block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-mint-600 disabled:bg-slate-50 disabled:text-slate-500 aria-[invalid=true]:ring-rose-500";
+export const inputStyles = "block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-mint-600 disabled:bg-slate-50 disabled:text-slate-500 aria-invalid:ring-rose-500";
 
 export const linkStyles = "font-medium text-mint-700 hover:text-mint-800";
 

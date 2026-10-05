@@ -2,7 +2,7 @@
 
 Panel web para administrar usuarios y roles: inicio de sesión con email y contraseña, alta, edición y baja de usuarios, y roles con permisos.
 
-- **Front-end:** React 19 + TypeScript + Vite + Tailwind CSS 3
+- **Front-end:** React 19 + TypeScript + Vite + Tailwind CSS 4
 - **Backend:** FastAPI + SQLAlchemy 2 + SQLite
 - **Seguridad:** contraseñas con Argon2id, sesión JWT en cookie httpOnly, permisos comprobados en el servidor
 

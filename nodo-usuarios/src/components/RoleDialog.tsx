@@ -69,7 +69,7 @@ export function RoleDialog({ role, permissions, onClose, onSubmit }: RoleDialogP
           <div className="mt-2 divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200">
             {permissions.map((permission) => (
               <label key={permission.key} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50">
-                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-mint-700 focus:ring-mint-600" checked={draft.permissions.includes(permission.key)} onChange={() => togglePermission(permission.key)} />
+                <input type="checkbox" className="h-4 w-4 rounded-sm border-slate-300 text-mint-700 focus:ring-mint-600" checked={draft.permissions.includes(permission.key)} onChange={() => togglePermission(permission.key)} />
                 <span className="flex-1 text-slate-700">{permission.label}</span>
                 <code className="text-xs text-slate-400">{permission.key}</code>
               </label>
