@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "start": "concurrently --names api,web --prefix-colors cyan,magenta --kill-others-on-fail \"npm:api\" \"npm:dev\"",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -28,6 +29,7 @@
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^10.0.5",
     "eslint": "^9.27.0",
     "globals": "^16.2.0",
     "jsdom": "^29.1.1",

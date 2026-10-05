@@ -122,6 +122,7 @@ Límites conocidos: el bloqueo de intentos vive en memoria (se reinicia con el p
 
 | Comando | Qué hace |
 | --- | --- |
+| `npm start` | Arranca la API y Vite a la vez en un solo terminal. |
 | `npm run api` | Arranca FastAPI con recarga automática en el puerto 8000. |
 | `npm run dev` | Arranca Vite en el puerto 5173. |
 | `npm run test:api` | Ejecuta las pruebas del backend. |

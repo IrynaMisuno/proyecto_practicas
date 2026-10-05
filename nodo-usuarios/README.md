@@ -49,6 +49,8 @@ npm run dev
 
 Abre `http://localhost:5173` e inicia sesión con el administrador de `.env`. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
 
+**Atajo:** `npm start` arranca la API y el front-end a la vez en un solo terminal, con la salida de cada uno marcada como `[api]` y `[web]`. Ctrl+C detiene los dos.
+
 ### 3. Usuarios para probar
 
 Al arrancar solo existe el administrador de `.env`. Para probar con un rol sin permisos de escritura, crea un usuario Lector:
