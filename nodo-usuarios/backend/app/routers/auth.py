@@ -1,13 +1,13 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..deps import CurrentUser, DbSession
 from ..mailer import send_invitation_email, send_password_reset_email
-from ..models import PasswordResetToken, User
+from ..models import InvitationSend, PasswordResetToken, User
 from ..schemas import CurrentUser as CurrentUserOut
 from ..schemas import ForgotPasswordRequest, LoginRequest, MessageOut, ResetPasswordRequest
 from ..security import (
@@ -65,8 +65,18 @@ def issue_password_link(db: Session, user: User, path: str, lifetime: timedelta)
 
 
 def send_invitation(db: Session, user: User, background: BackgroundTasks) -> None:
-    hours = get_settings().invite_token_hours
-    link = issue_password_link(db, user, INVITATION_PATH, timedelta(hours=hours))
+    settings = get_settings()
+    # Límite persistente (no en memoria): la ventana es de 24 horas y sobrevive a los reinicios.
+    since = datetime.now(UTC) - timedelta(hours=24)
+    sent = db.scalar(select(func.count()).select_from(InvitationSend).where(InvitationSend.user_id == user.id, InvitationSend.sent_at > since))
+    if sent >= settings.invite_max_per_day:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Este usuario ya ha recibido {settings.invite_max_per_day} invitaciones en las últimas 24 horas. Vuelve a intentarlo más tarde.",
+        )
+    db.add(InvitationSend(user_id=user.id))
+    hours = settings.invite_token_hours
+    link = issue_password_link(db, user, INVITATION_PATH, timedelta(hours=hours))  # guarda también el envío
     background.add_task(send_invitation_email, user.email, user.name, link, hours)
 
 
@@ -126,12 +136,20 @@ def reset_password(payload: ResetPasswordRequest, db: DbSession) -> MessageOut:
     if record is None or as_utc(record.expires_at) < now or user is None or user.status not in ("active", "invited"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, INVALID_RESET_LINK)
 
+    # El hash (lento a propósito) se calcula antes de reclamar el enlace, para no bloquear la base de datos.
+    new_password_hash = hash_password(payload.password)
+    # Reclama el enlace de forma atómica: si llegan dos peticiones a la vez con el mismo enlace, solo una
+    # actualiza la fila; la otra ya no lo encuentra sin usar y recibe el mismo error.
+    claimed = db.execute(update(PasswordResetToken).where(PasswordResetToken.id == record.id, PasswordResetToken.used_at.is_(None)).values(used_at=now))
+    if claimed.rowcount != 1:
+        db.rollback()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, INVALID_RESET_LINK)
+
     accepting_invitation = user.status == "invited"
-    user.password_hash = hash_password(payload.password)
+    user.password_hash = new_password_hash
     user.password_changed()  # cierra las sesiones abiertas con la contraseña anterior
     if accepting_invitation:
         user.status = "active"
-    record.used_at = now
     db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id, PasswordResetToken.id != record.id))
     db.commit()
     if accepting_invitation:

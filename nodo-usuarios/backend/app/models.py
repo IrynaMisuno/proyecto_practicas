@@ -71,3 +71,13 @@ class PasswordResetToken(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class InvitationSend(Base):
+    """Cada envío de una invitación, para limitar cuántas recibe un usuario al día."""
+
+    __tablename__ = "invitation_sends"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

@@ -62,7 +62,9 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 
 **User**: `id`, `name`, `email` (único, en minúsculas), `password_hash`, `status` (`active`, `invited`, `suspended`), `role_id`, `created_at`, `updated_at`, `password_changed_at`, `session_version`.
 
-**PasswordResetToken**: `id`, `user_id`, `token_hash` (SHA-256 del token), `expires_at`, `used_at`, `created_at`.
+**PasswordResetToken**: `id`, `user_id`, `token_hash` (SHA-256 del token), `expires_at`, `used_at`, `created_at`. Sirve para la recuperación de contraseña y para las invitaciones.
+
+**InvitationSend**: `id`, `user_id`, `sent_at`. Un registro por cada invitación enviada, para el límite diario.
 
 Solo los usuarios `active` pueden iniciar sesión. Al arrancar por primera vez se crean tres roles:
 
@@ -86,7 +88,7 @@ Todas las rutas empiezan por `/api`. Salvo el login, todas exigen sesión (401 s
 | `GET` | `/users` | `users:read` | Lista de usuarios. |
 | `GET` | `/users/{id}` | `users:read` | Un usuario. |
 | `POST` | `/users` | `users:write` | `{"name", "email", "role_id"}`; crea el usuario como `invited` y le envía la invitación por email. No acepta `password` ni `status`. |
-| `POST` | `/users/{id}/invitation` | `users:write` | Reenvía la invitación (202) y anula el enlace anterior; 409 si el usuario no está invitado. |
+| `POST` | `/users/{id}/invitation` | `users:write` | Reenvía la invitación (202) y anula el enlace anterior; 409 si el usuario no está invitado y 429 si ya ha recibido 5 en 24 horas. |
 | `PATCH` | `/users/{id}` | `users:write` | Cualquier subconjunto de `{"name", "email", "role_id", "status", "password"}`. |
 | `DELETE` | `/users/{id}` | `users:write` | Elimina un usuario. |
 | `GET` | `/roles` | sesión | Lista de roles. |
@@ -107,14 +109,15 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
   - `forgot-password` responde siempre lo mismo, exista o no el email, para no revelar qué cuentas hay.
   - Solo se envía el enlace a cuentas activas, como máximo 3 veces cada 15 minutos por email.
   - El token es aleatorio (256 bits) y en la base de datos solo se guarda su SHA-256.
-  - Caduca a los 30 minutos (`RESET_TOKEN_MINUTES`), es de un solo uso y pedir uno nuevo anula los anteriores.
+  - Caduca a los 30 minutos (`RESET_TOKEN_MINUTES`), es de un solo uso y pedir uno nuevo anula los anteriores. El enlace se marca como usado con una sola operación atómica: si llegan dos peticiones a la vez con el mismo enlace, solo una lo consigue.
   - Va en el fragmento de la URL (`#token=…`): el navegador no lo envía al servidor ni en el `Referer`, y la interfaz lo borra de la barra de direcciones al abrir la página.
   - Al cambiar la contraseña, por recuperación o desde el panel, se incrementa `session_version` y se cierran todas las sesiones abiertas de ese usuario.
   - Los enlaces pendientes (de recuperación o de invitación) se anulan si cambia la contraseña, si se suspende la cuenta o si cambia el email, porque se enviaron a la dirección anterior.
 - **Alta por invitación**:
   - El administrador nunca conoce ni elige la contraseña de otra persona: el usuario se crea como `invited`, con una contraseña aleatoria que nadie conoce, y recibe un enlace para elegir la suya.
   - El enlace usa el mismo mecanismo que la recuperación (token de 256 bits, solo se guarda el SHA-256, un solo uso, en el fragmento de la URL), pero va a `/aceptar-invitacion` y caduca a las 24 horas (`INVITE_TOKEN_HOURS`).
-  - Al aceptarla, la cuenta pasa a `active`. Reenviarla anula el enlace anterior. Un usuario suspendido no puede aceptarla y un invitado no puede pedir el enlace de recuperación.
+  - Al aceptarla, la cuenta pasa a `active`. Reenviarla anula el enlace anterior.
+  - Cada usuario puede recibir como máximo 5 invitaciones (alta + reenvíos) en 24 horas (`INVITE_MAX_PER_DAY`). El límite se guarda en la base de datos (`invitation_sends`), así que sobrevive a los reinicios, y se borra al eliminar el usuario. Un usuario suspendido no puede aceptarla y un invitado no puede pedir el enlace de recuperación.
 - **Entrada estricta**: se rechazan los campos desconocidos, así que no se puede enviar `password_hash`, `id` ni fechas.
 - **Emails únicos**: se normalizan a minúsculas, y una restricción `UNIQUE` en la base de datos cubre las altas simultáneas.
 - **Integridad**: no puedes eliminarte ni desactivarte, no se borran roles asignados y siempre debe quedar un usuario activo con `users:write` y `roles:write`.
@@ -122,7 +125,7 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
 
 Correo: sin `SMTP_HOST`, los enlaces de recuperación y de invitación se escriben en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.
 
-Límites conocidos: el bloqueo de intentos vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias). Para producción, sirve todo por HTTPS con `COOKIE_SECURE=true` y usa migraciones (Alembic) en lugar de `create_all`.
+Límites conocidos: el bloqueo de intentos de login y de recuperación vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias); el límite de invitaciones, en cambio, está en la base de datos. El primer arranque sobre una base de datos vacía debe hacerse con un solo proceso: con varios (`--workers`), todos intentan crear las tablas y la semilla a la vez y fallan. Para producción, sirve todo por HTTPS con `COOKIE_SECURE=true` y usa migraciones (Alembic) en lugar de `create_all`.
 
 ## 7. Comandos
 

@@ -5,7 +5,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
 from app.database import SessionLocal
-from app.models import PasswordResetToken, User
+from app.security import hash_password
+from app.models import InvitationSend, PasswordResetToken, User
 from app.routers import auth
 
 from .conftest import STRONG_PASSWORD, create_user, role_id
@@ -147,3 +148,49 @@ def test_resending_invitation_requires_users_write(admin: TestClient, invitation
     assert admin.post(f"/api/users/{pending['id']}/invitation").status_code == 401
     login(admin, "lector@example.com")
     assert admin.post(f"/api/users/{pending['id']}/invitation").status_code == 403
+
+
+def test_invitations_are_limited_to_five_per_day(admin: TestClient, invitations: list[dict]):
+    user = invite(admin, "limite@example.com").json()
+    for _ in range(4):
+        assert admin.post(f"/api/users/{user['id']}/invitation").status_code == 202
+    blocked = admin.post(f"/api/users/{user['id']}/invitation")
+    assert blocked.status_code == 429
+    assert "5 invitaciones en las últimas 24 horas" in blocked.json()["error"]
+    assert len(invitations) == 5
+
+
+def test_invitation_limit_frees_up_after_24_hours(admin: TestClient, invitations: list[dict]):
+    user = invite(admin, "ventana@example.com").json()
+    for _ in range(4):
+        admin.post(f"/api/users/{user['id']}/invitation")
+    with SessionLocal() as db:
+        db.execute(update(InvitationSend).values(sent_at=datetime.now(UTC) - timedelta(hours=25)))
+        db.commit()
+    assert admin.post(f"/api/users/{user['id']}/invitation").status_code == 202
+
+
+def test_deleting_a_user_removes_their_invitation_history(admin: TestClient, invitations: list[dict]):
+    user = invite(admin, "borrada@example.com").json()
+    assert admin.delete(f"/api/users/{user['id']}").status_code == 204
+    with SessionLocal() as db:
+        assert db.scalar(select(InvitationSend).where(InvitationSend.user_id == user["id"])) is None
+
+
+# --- Uso concurrente del enlace ----------------------------------------------
+
+def test_link_cannot_be_used_twice_by_simultaneous_requests(admin: TestClient, invitations: list[dict], monkeypatch: pytest.MonkeyPatch):
+    invite(admin, "carrera@example.com")
+    token = token_from(invitations[0])
+
+    def other_request_wins(password: str) -> str:
+        # Mientras esta petición calcula el hash, otra con el mismo enlace termina antes y lo usa.
+        with SessionLocal() as db:
+            db.execute(update(PasswordResetToken).values(used_at=datetime.now(UTC)))
+            db.commit()
+        return hash_password(password)
+
+    monkeypatch.setattr(auth, "hash_password", other_request_wins)
+    assert accept(admin, token, "Perdedora-Clave-1").status_code == 400
+    with SessionLocal() as db:
+        assert db.scalar(select(User.status).where(User.email == "carrera@example.com")) == "invited"
