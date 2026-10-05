@@ -33,5 +33,7 @@ def send_password_reset_email(to: str, name: str, link: str) -> None:
             if settings.smtp_user and settings.smtp_password:
                 smtp.login(settings.smtp_user, settings.smtp_password)
             smtp.send_message(message)
-    except (OSError, smtplib.SMTPException):
-        logger.exception("No se pudo enviar el correo de recuperación a %s", to)
+    except (OSError, smtplib.SMTPException) as error:
+        # Solo el tipo de error: el email es un dato personal (RGPD) y algunas excepciones
+        # de SMTP, como SMTPRecipientsRefused, lo incluyen en su mensaje.
+        logger.error("No se pudo enviar el correo de recuperación (%s).", type(error).__name__)

@@ -1,9 +1,13 @@
+import logging
+import smtplib
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
+from app import mailer
+from app.config import get_settings
 from app.database import SessionLocal
 from app.models import PasswordResetToken
 from app.routers import auth
@@ -126,3 +130,18 @@ def test_changing_own_password_keeps_session(admin: TestClient):
     me = admin.get("/api/auth/me").json()
     assert admin.patch(f"/api/users/{me['id']}", json={"password": "Mi-Nueva-Clave-1"}).status_code == 200
     assert admin.get("/api/auth/me").status_code == 200
+
+
+def test_smtp_failure_is_logged_without_the_email(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    email = "persona@example.com"
+
+    def refuse(*_args, **_kwargs):
+        raise smtplib.SMTPRecipientsRefused({email: (550, b"Buzon no disponible")})
+
+    monkeypatch.setattr(get_settings(), "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(mailer.smtplib, "SMTP", refuse)
+    with caplog.at_level(logging.ERROR, logger="uvicorn.error"):
+        mailer.send_password_reset_email(email, "Persona", "http://localhost:5173/restablecer-contrasena#token=x")
+
+    assert "SMTPRecipientsRefused" in caplog.text
+    assert email not in caplog.text
