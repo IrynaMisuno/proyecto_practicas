@@ -7,8 +7,8 @@ from .schemas import validate_password
 from .security import hash_password
 
 DEFAULT_ROLES = [
-    {"name": "Administrador", "description": "Acceso completo al panel", "tone": "indigo", "permissions": list(PERMISSIONS)},
-    {"name": "Gestor", "description": "Gestiona usuarios y consulta roles", "tone": "emerald", "permissions": ["users:read", "users:write", "roles:read"]},
+    {"name": "Administrador", "description": "Acceso completo al panel", "tone": "violet", "permissions": list(PERMISSIONS)},
+    {"name": "Gestor", "description": "Gestiona usuarios y consulta roles", "tone": "mint", "permissions": ["users:read", "users:write", "roles:read"]},
     {"name": "Lector", "description": "Consulta usuarios y roles sin modificarlos", "tone": "slate", "permissions": ["users:read", "roles:read"]},
 ]
 

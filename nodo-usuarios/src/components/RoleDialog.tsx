@@ -5,11 +5,11 @@ import { Field, FormError, Modal, buttonStyles, inputStyles, toneStyles } from "
 
 const toneLabels: Record<RoleTone, string> = {
   slate: "Gris",
-  indigo: "Índigo",
-  emerald: "Verde",
+  mint: "Menta",
+  sky: "Azul",
+  violet: "Lavanda",
   amber: "Ámbar",
   rose: "Rosa",
-  sky: "Azul",
 };
 
 interface RoleDialogProps {
@@ -69,7 +69,7 @@ export function RoleDialog({ role, permissions, onClose, onSubmit }: RoleDialogP
           <div className="mt-2 divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200">
             {permissions.map((permission) => (
               <label key={permission.key} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50">
-                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" checked={draft.permissions.includes(permission.key)} onChange={() => togglePermission(permission.key)} />
+                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-mint-700 focus:ring-mint-600" checked={draft.permissions.includes(permission.key)} onChange={() => togglePermission(permission.key)} />
                 <span className="flex-1 text-slate-700">{permission.label}</span>
                 <code className="text-xs text-slate-400">{permission.key}</code>
               </label>
@@ -83,7 +83,7 @@ export function RoleDialog({ role, permissions, onClose, onSubmit }: RoleDialogP
             {(Object.keys(toneLabels) as RoleTone[]).map((tone) => (
               <label key={tone} title={toneLabels[tone]} className="cursor-pointer">
                 <input type="radio" name="tone" className="peer sr-only" checked={draft.tone === tone} onChange={() => setDraft({ ...draft, tone })} />
-                <span className={`block h-7 w-7 rounded-full ring-2 ring-transparent ring-offset-2 peer-checked:ring-slate-900 peer-focus-visible:ring-indigo-500 ${toneStyles[tone].swatch}`} />
+                <span className={`block h-7 w-7 rounded-full ring-2 ring-transparent ring-offset-2 peer-checked:ring-slate-900 peer-focus-visible:ring-mint-600 ${toneStyles[tone].swatch}`} />
                 <span className="sr-only">{toneLabels[tone]}</span>
               </label>
             ))}

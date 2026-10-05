@@ -7,7 +7,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, Str
 from .models import PERMISSIONS
 
 UserStatus = Literal["active", "invited", "suspended"]
-RoleTone = Literal["slate", "indigo", "emerald", "amber", "rose", "sky"]
+RoleTone = Literal["slate", "mint", "sky", "violet", "amber", "rose"]
 
 PASSWORD_MIN_LENGTH = 10
 PASSWORD_MAX_LENGTH = 128

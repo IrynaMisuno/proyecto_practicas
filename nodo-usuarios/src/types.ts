@@ -1,5 +1,5 @@
 export type UserStatus = "active" | "invited" | "suspended";
-export type RoleTone = "slate" | "indigo" | "emerald" | "amber" | "rose" | "sky";
+export type RoleTone = "slate" | "mint" | "sky" | "violet" | "amber" | "rose";
 export type Permission = "users:read" | "users:write" | "roles:read" | "roles:write";
 
 export interface Role {

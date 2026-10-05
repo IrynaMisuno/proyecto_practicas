@@ -5,5 +5,5 @@ const logoSizes = {
 
 /** Marca de Nodo. Es decorativa: el nombre de la app aparece en el texto de al lado o en el título. */
 export function Logo({ size = "sm", className = "" }: { size?: keyof typeof logoSizes; className?: string }) {
-  return <span className={`grid place-items-center bg-indigo-600 font-bold text-white ${logoSizes[size]} ${className}`} aria-hidden>N</span>;
+  return <span className={`grid place-items-center bg-mint-300 font-bold text-mint-950 ${logoSizes[size]} ${className}`} aria-hidden>N</span>;
 }

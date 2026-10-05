@@ -10,11 +10,11 @@ export function UserStats({ users }: { users: User[] }) {
   ];
 
   return (
-    <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {stats.map((stat) => (
-        <div key={stat.label} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <dt className="text-sm text-slate-500">{stat.label}</dt>
-          <dd className="mt-1 text-2xl font-semibold text-slate-900">{stat.value}</dd>
+        <div key={stat.label} className="flex items-baseline justify-between gap-2 rounded-lg bg-white px-3.5 py-2.5 ring-1 ring-slate-200">
+          <dt className="text-sm text-slate-600">{stat.label}</dt>
+          <dd className="text-lg font-semibold text-slate-900">{stat.value}</dd>
         </div>
       ))}
     </dl>

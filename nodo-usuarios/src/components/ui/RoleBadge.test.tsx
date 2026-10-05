@@ -4,7 +4,7 @@ import { RoleBadge } from "./RoleBadge";
 
 describe("RoleBadge", () => {
   it("muestra el nombre del rol", () => {
-    render(<RoleBadge name="Administrador" tone="indigo" />);
+    render(<RoleBadge name="Administrador" tone="violet" />);
 
     expect(screen.getByText("Administrador")).toBeInTheDocument();
   });

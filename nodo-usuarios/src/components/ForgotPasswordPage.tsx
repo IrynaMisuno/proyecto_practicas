@@ -18,7 +18,7 @@ export function ForgotPasswordPage({ onBack }: { onBack: () => void }) {
     return (
       <AuthShell title="Revisa tu correo" subtitle={email.trim()} footer={<BackToLogin onClick={onBack} />}>
         <div className="space-y-3 text-center">
-          <MailCheck className="mx-auto text-indigo-600" size={32} aria-hidden />
+          <MailCheck className="mx-auto text-mint-700" size={32} aria-hidden />
           <p className="text-sm text-slate-600" role="status">{sentMessage}</p>
           <p className="text-sm text-slate-500">El enlace caduca pronto y solo se puede usar una vez. Si no lo ves, revisa la carpeta de spam.</p>
         </div>

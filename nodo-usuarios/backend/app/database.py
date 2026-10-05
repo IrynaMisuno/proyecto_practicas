@@ -32,8 +32,12 @@ def get_db() -> Iterator[Session]:
         yield session
 
 
+# Colores de rol que se renombraron al pasar a la paleta menta (nombre antiguo -> nuevo).
+RENAMED_TONES = {"indigo": "violet", "emerald": "mint"}
+
+
 def upgrade_schema(engine: Engine) -> None:
-    """Añade columnas nuevas a bases de datos existentes (create_all solo crea tablas)."""
+    """Actualiza bases de datos existentes: añade columnas nuevas (create_all solo crea tablas) y renombra colores de rol."""
     columns = {column["name"] for column in inspect(engine).get_columns("users")}
     missing = {
         "password_changed_at": "DATETIME",
@@ -43,3 +47,5 @@ def upgrade_schema(engine: Engine) -> None:
         for name, definition in missing.items():
             if name not in columns:
                 connection.execute(text(f"ALTER TABLE users ADD COLUMN {name} {definition}"))
+        for old, new in RENAMED_TONES.items():
+            connection.execute(text("UPDATE roles SET tone = :new WHERE tone = :old"), {"old": old, "new": new})

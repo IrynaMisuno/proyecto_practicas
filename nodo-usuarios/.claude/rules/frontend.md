@@ -38,7 +38,7 @@ paths:
 ## Estilos
 - Solo clases de utilidad de Tailwind. `src/styles.css` contiene únicamente directivas y estilos base; no añadas CSS propio.
 - Diseño mobile-first: los estilos base son para móvil y se amplían con `sm:`, `md:`, `lg:`. Comprueba a 375 px de ancho.
-- Paleta: `slate` para neutros, `indigo` para acciones principales y `rose` para errores y borrados.
+- Paleta: `slate` para neutros, `mint` (verde menta, definido en `tailwind.config.cjs`) para acciones principales y `rose` para errores y borrados. Texto blanco solo sobre `mint-700` o más oscuro; el botón principal es `mint-300` con texto `mint-950`.
 
 ## Textos
 - Toda la interfaz en español, con tuteo y en el tono de los textos actuales.

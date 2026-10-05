@@ -14,7 +14,7 @@ export const adminRole: Role = {
   id: "rol-admin",
   name: "Administrador",
   description: "Acceso completo",
-  tone: "indigo",
+  tone: "violet",
   permissions: ["users:read", "users:write", "roles:read", "roles:write"],
 };
 
