@@ -1,0 +1,8 @@
+# Dependencias para desarrollar: las de producción más pruebas y auditoría.
+-r requirements.txt
+pytest>=9.1
+# TestClient (pruebas) usa httpx2; con el httpx antiguo Starlette avisa de que está obsoleto.
+# FastAPI admite Starlette desde la 0.46, pero el soporte de httpx2 llega en la 1.3.
+httpx2>=2.13
+starlette>=1.3
+pip-audit>=2.10

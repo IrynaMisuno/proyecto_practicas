@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .database import Base, SessionLocal, engine, upgrade_schema
+from .database import SessionLocal, engine, run_migrations
 from .routers import auth, roles, users
 from .seed import seed_database
 
@@ -23,8 +23,7 @@ FIELD_MESSAGES = {
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    Base.metadata.create_all(engine)
-    upgrade_schema(engine)
+    run_migrations(engine)
     with SessionLocal() as db:
         seed_database(db)
     yield

@@ -3,15 +3,16 @@
 Panel web para administrar usuarios y roles: inicio de sesión con email y contraseña, alta, edición y baja de usuarios, y roles con permisos.
 
 - **Front-end:** React 19 + TypeScript + Vite + Tailwind CSS 4
-- **Backend:** FastAPI + SQLAlchemy 2 + SQLite
+- **Backend:** FastAPI + SQLAlchemy 2 + Alembic (migraciones) + PostgreSQL 18
 - **Seguridad:** contraseñas con Argon2id, sesión JWT en cookie httpOnly, permisos comprobados en el servidor
 
 Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arquitectura, la API y las medidas de seguridad.
 
 ## Requisitos
 
-- Node.js 20 o superior
+- Node.js 22 o superior (Vite 8 lo necesita)
 - Python 3.12 o superior
+- Docker con el plugin Compose (`docker compose version`), para PostgreSQL
 
 ## Puesta en marcha
 
@@ -21,7 +22,7 @@ Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arqu
 cd backend
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip   # el pip que trae el sistema puede tener vulnerabilidades
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt   # producción + pruebas y auditoría
 cp .env.example .env
 ```
 
@@ -31,13 +32,14 @@ Edita `backend/.env`:
 - `ADMIN_EMAIL` y `ADMIN_PASSWORD`: el primer administrador. Se crea solo la primera vez, cuando la base de datos no tiene usuarios. La contraseña debe cumplir la política (ver abajo).
 - `SMTP_*` (opcional): servidor de correo para enviar los enlaces de recuperación de contraseña. Si no lo configuras, el enlace aparece en la consola del backend.
 
-Arranca la API (desde la raíz del proyecto):
+Arranca PostgreSQL y la API (desde la raíz del proyecto):
 
 ```bash
+npm run db:start
 npm run api
 ```
 
-La API queda en `http://127.0.0.1:8000` y la documentación interactiva en `http://127.0.0.1:8000/docs`. La base de datos se guarda en `backend/nodo.db`.
+La API queda en `http://127.0.0.1:8000` y la documentación interactiva en `http://127.0.0.1:8000/docs`. La base de datos es el PostgreSQL de Docker (`npm run db:start`, en `127.0.0.1:5433`) y, al arrancar, la API le aplica las migraciones pendientes de Alembic.
 
 ### 2. Front-end
 
@@ -48,7 +50,17 @@ npm install
 npm run dev
 ```
 
-Abre `http://localhost:5173` e inicia sesión con el administrador de `.env`. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
+Abre `https://localhost:5173` e inicia sesión con el administrador de `.env`. Por `http://` no responde, porque la cookie de sesión solo viaja por HTTPS.
+
+**Certificado de confianza (recomendado, una sola vez por equipo).** Sin él, Vite usa un certificado autofirmado y el navegador avisa de que no puede verificarlo. Con [mkcert](https://github.com/FiloSottile/mkcert) el aviso desaparece:
+
+```bash
+sudo apt install mkcert libnss3-tools   # en macOS: brew install mkcert nss
+mkcert -install                          # crea una autoridad local y la registra como de confianza
+npm run certs                            # genera certs/localhost.pem (no se sube al repositorio)
+```
+
+Reinicia `npm start` y cierra y vuelve a abrir el navegador. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
 
 **Atajo:** `npm start` arranca la API y el front-end a la vez en un solo terminal, con la salida de cada uno marcada como `[api]` y `[web]`. Ctrl+C detiene los dos.
 
@@ -65,6 +77,31 @@ Si el enlace caduca (24 horas), el administrador puede reenviarlo con el botón 
 
 No escribas contraseñas reales en el repositorio: las de prueba solo las conoces tú.
 
+## Migraciones de la base de datos
+
+El esquema se gestiona con [Alembic](https://alembic.sqlalchemy.org/). Las migraciones están en `backend/migrations/versions/` y la API aplica las pendientes al arrancar.
+
+Para cambiar el esquema:
+
+1. Edita los modelos en `backend/app/models.py`.
+2. `npm run db:upgrade` para tener la base de datos al día.
+3. `npm run db:revision -- "añade teléfono a usuarios"` genera la migración comparando los modelos con la base de datos.
+4. Revisa el archivo generado (Alembic no detecta los renombrados ni las migraciones de datos) y aplícalo con `npm run db:upgrade` o reiniciando la API.
+5. Sube el cambio del modelo y la migración en el mismo commit.
+
+Otros comandos, desde `backend/`: `.venv/bin/alembic current` (versión actual), `.venv/bin/alembic history` y `.venv/bin/alembic downgrade -1` (deshace la última).
+
+## Despliegue en producción
+
+Necesitas un servidor con Docker, un dominio que apunte a él (registro DNS A/AAAA) y los puertos 80 y 443 abiertos.
+
+```bash
+cp .env.produccion.example .env.produccion   # rellena DOMINIO, secretos, administrador y SMTP
+docker compose -f docker-compose.produccion.yml --env-file .env.produccion up -d --build
+```
+
+Caddy obtiene el certificado HTTPS de Let's Encrypt automáticamente y lo renueva solo. La app queda en `https://DOMINIO`; la API y PostgreSQL no son accesibles desde fuera. Para actualizar, vuelve a ejecutar el mismo comando: la API aplica las migraciones pendientes al arrancar. Detalles en la [guía del proyecto](docs/guia-del-proyecto.md#despliegue-en-producción).
+
 ## Comprobaciones
 
 ```bash
@@ -72,13 +109,14 @@ npm run test:api   # pruebas del backend (pytest)
 npx vitest run     # pruebas del front-end (Vitest)
 npm run lint
 npm run build
+npm run audit      # vulnerabilidades conocidas en las dependencias
 ```
 
 GitHub Actions ejecuta estas mismas comprobaciones en cada push a `main` y en cada pull request (`.github/workflows/ci.yml`, en la raíz del repositorio).
 
 ## Funciones
 
-- Inicio y cierre de sesión con email y contraseña.
+- Inicio y cierre de sesión con email y contraseña, con «Recordarme en este equipo» (sesión de 30 días). El navegador puede guardar el email y la contraseña con su gestor de contraseñas.
 - «¿Has olvidado tu contraseña?»: enlace por correo, válido 30 minutos y de un solo uso. Al cambiar la contraseña se cierran las sesiones abiertas.
 - Alta, edición, búsqueda, filtrado y baja de usuarios.
 - Roles editables con permisos: `users:read`, `users:write`, `roles:read` y `roles:write`. La interfaz oculta lo que tu rol no permite y la API lo rechaza (403).

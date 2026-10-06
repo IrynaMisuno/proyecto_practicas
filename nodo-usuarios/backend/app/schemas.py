@@ -1,5 +1,5 @@
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, StringConstraints
@@ -45,8 +45,6 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 RoleName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)]
 Permissions = Annotated[list[str], AfterValidator(validate_permissions)]
-# SQLite no guarda la zona horaria: las fechas se almacenan en UTC y se marcan al salir.
-UtcDatetime = Annotated[datetime, AfterValidator(lambda value: value if value.tzinfo else value.replace(tzinfo=UTC))]
 
 
 class StrictModel(BaseModel):
@@ -57,6 +55,8 @@ class StrictModel(BaseModel):
 class LoginRequest(StrictModel):
     email: EmailStr
     password: str = Field(max_length=PASSWORD_MAX_LENGTH)
+    # «Recordarme en este equipo»: la sesión dura REMEMBER_DAYS y sobrevive al cierre del navegador.
+    remember: bool = False
 
 
 class ForgotPasswordRequest(StrictModel):
@@ -119,8 +119,8 @@ class UserOut(BaseModel):
     email: str
     status: UserStatus
     role_id: str
-    created_at: UtcDatetime
-    updated_at: UtcDatetime
+    created_at: datetime
+    updated_at: datetime
 
 
 class CurrentUser(UserOut):

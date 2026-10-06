@@ -1,26 +1,33 @@
 from collections.abc import Iterator
+from pathlib import Path
 
-from sqlalchemy import create_engine, event, inspect, text
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import get_settings
 
+# Nombres fijos para índices y restricciones: Alembic los necesita para poder modificarlos o
+# borrarlos en migraciones futuras.
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
 def make_engine(url: str) -> Engine:
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    engine = create_engine(url, connect_args=connect_args)
-    if url.startswith("sqlite"):
-        # SQLite no aplica las claves foráneas si no se activa en cada conexión.
-        @event.listens_for(engine, "connect")
-        def _enable_foreign_keys(dbapi_connection, _record) -> None:
-            dbapi_connection.execute("PRAGMA foreign_keys=ON")
-
-    return engine
+    # pool_pre_ping descarta las conexiones que PostgreSQL haya cerrado (reinicio, inactividad).
+    # La sesión en UTC hace que las fechas salgan siempre en UTC, sea cual sea el servidor.
+    return create_engine(url, pool_pre_ping=True, connect_args={"options": "-c timezone=UTC"})
 
 
 engine = make_engine(get_settings().database_url)
@@ -32,20 +39,20 @@ def get_db() -> Iterator[Session]:
         yield session
 
 
-# Colores de rol que se renombraron al pasar a la paleta menta (nombre antiguo -> nuevo).
-RENAMED_TONES = {"indigo": "violet", "emerald": "mint"}
+# --- Migraciones (Alembic) ---
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
-def upgrade_schema(engine: Engine) -> None:
-    """Actualiza bases de datos existentes: añade columnas nuevas (create_all solo crea tablas) y renombra colores de rol."""
-    columns = {column["name"] for column in inspect(engine).get_columns("users")}
-    missing = {
-        "password_changed_at": "DATETIME",
-        "session_version": "INTEGER NOT NULL DEFAULT 0",
-    }
+def alembic_config() -> Config:
+    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    return config
+
+
+def run_migrations(engine: Engine) -> None:
+    """Deja la base de datos en la última migración (`alembic upgrade head`)."""
+    config = alembic_config()
     with engine.begin() as connection:
-        for name, definition in missing.items():
-            if name not in columns:
-                connection.execute(text(f"ALTER TABLE users ADD COLUMN {name} {definition}"))
-        for old, new in RENAMED_TONES.items():
-            connection.execute(text("UPDATE roles SET tone = :new WHERE tone = :old"), {"old": old, "new": new})
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")

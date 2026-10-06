@@ -2,8 +2,8 @@
 
 - Aplicación: Nodo, panel de administración de usuarios y roles.
 - Front-end: React, TypeScript estricto, Vite y Tailwind CSS 4 (solo clases de utilidad; `frontend/styles.css` contiene únicamente el `@import`, el tema `@theme` y los estilos base).
-- Backend: FastAPI + SQLAlchemy + SQLite en `backend/`. Pruebas con `npm run test:api`.
-- Arranque: `npm run api` y `npm run dev` en terminales separados; comprobar con `npx vitest run`, `npm run lint`, `npm run build` y `npm run test:api`.
+- Backend: FastAPI + SQLAlchemy + Alembic + PostgreSQL (Docker, `npm run db:start`) en `backend/`. Pruebas con `npm run test:api`.
+- Arranque: `npm start` (PostgreSQL en Docker, API y Vite en `https://localhost:5173`); comprobar con `npx vitest run`, `npm run lint`, `npm run build` y `npm run test:api`.
 - Toda validación y autorización se hace en el servidor; la interfaz solo la refleja. Cada endpoint nuevo debe usar `require_permission`.
 - Nunca devolver `password_hash` ni aceptar campos desconocidos en la entrada (`StrictModel`).
 - La política de contraseñas está en `backend/app/schemas.py` y se replica en `frontend/components/PasswordChecklist.tsx`; cambiar ambas a la vez.

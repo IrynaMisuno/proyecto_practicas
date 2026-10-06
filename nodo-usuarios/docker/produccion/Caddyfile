@@ -1,0 +1,30 @@
+# Caddy obtiene y renueva solo el certificado de Let's Encrypt para {$DOMINIO} y redirige
+# HTTP a HTTPS. Sirve el front-end compilado y pasa /api a la API por la red interna.
+{$DOMINIO} {
+	encode zstd gzip
+
+	header {
+		# HSTS solo aquí: en desarrollo (localhost) afectaría a todas las apps locales.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		# Solo recursos propios, salvo la fuente Inter de Google Fonts (index.html).
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		# Los archivos de /assets llevan un hash en el nombre: se pueden guardar en caché para siempre.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		# Rutas de la app (p. ej. /aceptar-invitacion): todas cargan index.html.
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -2,25 +2,31 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Nodo: panel de administración de usuarios y roles. Front-end React 19 + TypeScript + Vite + Tailwind 4 en `frontend/`; API FastAPI + SQLAlchemy 2 + SQLite en `backend/`. Arquitectura, API y medidas de seguridad: `docs/guia-del-proyecto.md`.
+Nodo: panel de administración de usuarios y roles. Front-end React 19 + TypeScript + Vite + Tailwind 4 en `frontend/`; API FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL en `backend/`. Arquitectura, API y medidas de seguridad: `docs/guia-del-proyecto.md`.
 
 Las normas de cada apartado están en `.claude/rules/` y se cargan solas según los archivos que se toquen.
 
 ## Comandos (desde `nodo-usuarios/`)
 
-- `npm start`: arranca la API y Vite a la vez en un solo terminal (`concurrently`).
+- `npm start`: arranca PostgreSQL (Docker), la API y Vite a la vez en un solo terminal (`concurrently`).
+- `npm run db:start` / `npm run db:stop`: arranca o detiene el PostgreSQL de `docker-compose.yml` (`127.0.0.1:5433`; bases `nodo` y `nodo_test`).
 - `npm run api`: arranca FastAPI en `127.0.0.1:8000` (requiere `backend/.venv` y `backend/.env`).
-- `npm run dev`: arranca Vite en `localhost:5173`; redirige `/api` al backend (mismo origen, sin CORS).
-- `npm run test:api`: pytest del backend. Una prueba: `cd backend && .venv/bin/pytest tests/test_api.py -k nombre_prueba`.
+- `npm run dev`: arranca Vite en `https://localhost:5173` (por HTTP no responde). `npm run certs` genera con mkcert un certificado de confianza en `certs/`; sin él, Vite usa uno autofirmado y el navegador avisa; redirige `/api` al backend (mismo origen, sin CORS).
+- `npm run test:api`: pytest del backend, contra la base `nodo_test` (necesita `db:start`). Una prueba: `cd backend && .venv/bin/pytest tests/test_api.py -k nombre_prueba`.
+- `npm run db:upgrade`: aplica las migraciones pendientes (`alembic upgrade head`). La API también lo hace al arrancar.
+- `npm run db:revision -- "mensaje"`: genera una migración en `backend/migrations/versions/` comparando `models.py` con la base de datos (ejecuta antes `db:upgrade`). Revísala siempre.
 - `npm test`: Vitest del front-end en modo vigilancia (`npx vitest run` para una sola pasada). Un archivo: `npx vitest run frontend/components/PasswordChecklist.test.tsx`.
 - `npm run lint` y `npm run build` (`tsc -b` + Vite).
+- Producción: `docker compose -f docker-compose.produccion.yml --env-file .env.produccion up -d --build` (Caddy con HTTPS automático + API + PostgreSQL).
+- `npm run audit`: busca vulnerabilidades conocidas en las dependencias (`npm audit` y `pip-audit`).
 
 ## Normas generales
 
 - Todo en español: textos de la interfaz, mensajes de error de la API, comentarios y commits.
 - La validación y la autorización se hacen en el servidor; la interfaz solo las refleja.
+- Todo cambio en `backend/app/models.py` va con su migración de Alembic en el mismo commit; `tests/test_migrations.py` falla si falta.
 - Si cambias la API, el modelo de datos o una medida de seguridad, actualiza `docs/guia-del-proyecto.md` en el mismo cambio. Mantén coherente `.github/copilot-instructions.md`.
-- No subas `backend/.env`, `backend/nodo.db`, `dist/` ni `.pytest_cache/` (ya están en `.gitignore`).
+- No subas `backend/.env`, `dist/` ni `.pytest_cache/` (ya están en `.gitignore`).
 - Commits con Conventional Commits, con la descripción en español: `feat: añade filtro por rol`, `fix: …`, `docs: …`, `test: …`, `refactor: …`.
 
 ## Normas de referencia y dónde se aplican
@@ -38,7 +44,7 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 
 Integración continua: `.github/workflows/ci.yml` (en la raíz del repositorio) ejecuta lint, Vitest, build y pytest en cada push a `main` y en cada pull request.
 
-Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend y auditoría de dependencias (`npm audit`, `pip-audit`).
+Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend.
 
 ## Verificación antes de dar un cambio por terminado
 

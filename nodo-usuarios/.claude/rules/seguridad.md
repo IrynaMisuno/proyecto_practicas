@@ -28,7 +28,7 @@ Referencias: OWASP ASVS 5.0 (capítulos de autenticación, sesión, control de a
 - No escribas emails ni nombres en los logs, salvo los enlaces de recuperación e invitación en desarrollo (`mailer.py` sin SMTP).
 
 ## Secretos (Twelve-Factor: configuración en el entorno)
-- Los secretos solo van en `backend/.env`. Cada variable nueva va también en `.env.example`, con un valor de ejemplo, y en `app/config.py`.
+- Los secretos solo van en `backend/.env` (desarrollo) y en `.env.produccion` (producción). Cada variable nueva va también en `backend/.env.example` y, si hace falta en producción, en `.env.produccion.example`, con un valor de ejemplo, y en `app/config.py`.
 - No uses credenciales reales en pruebas ni en ejemplos; usa `@example.com`.
 - No escribas secretos, tokens ni contraseñas en logs, mensajes de error ni commits.
 
@@ -36,4 +36,4 @@ Referencias: OWASP ASVS 5.0 (capítulos de autenticación, sesión, control de a
 - No uses `dangerouslySetInnerHTML` ni construyas HTML con cadenas.
 - Las peticiones HTTP pasan siempre por `request()` de `frontend/data.ts` (`credentials: "same-origin"`, manejo del 401 y de `ApiError`). Los componentes no importan `data.ts`: usan los hooks de `frontend/hooks/`.
 - Codifica los ids en las URLs con `encodeURIComponent`.
-- Producción: HTTPS y `COOKIE_SECURE=true`.
+- HTTPS en todos los entornos y `COOKIE_SECURE=true` por defecto; no lo desactives. HSTS y CSP los añade Caddy en producción (`docker/produccion/Caddyfile`): si cargas un recurso externo nuevo, añádelo a la CSP.
