@@ -55,6 +55,8 @@ class StrictModel(BaseModel):
 class LoginRequest(StrictModel):
     email: EmailStr
     password: str = Field(max_length=PASSWORD_MAX_LENGTH)
+    # «Recordarme en este equipo»: la sesión dura REMEMBER_DAYS y sobrevive al cierre del navegador.
+    remember: bool = False
 
 
 class ForgotPasswordRequest(StrictModel):

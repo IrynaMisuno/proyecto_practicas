@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..deps import DbSession, require_permission
+from ..deps import DbSession, RememberedSession, require_permission
 from ..models import PasswordResetToken, Role, User
 from ..rules import ensure_admin_remains
 from ..schemas import MessageOut, UserCreate, UserOut, UserUpdate
@@ -88,7 +88,7 @@ def resend_invitation(user_id: str, background: BackgroundTasks, db: DbSession, 
 
 
 @router.patch("/{user_id}")
-def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSession, current: Writer) -> UserOut:
+def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSession, current: Writer, remembered: RememberedSession) -> UserOut:
     user = get_user_or_404(db, user_id)
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
 
@@ -118,7 +118,7 @@ def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSes
     commit_or_conflict(db)
     db.refresh(user)
     if password_changed and user.id == current.id:
-        set_session_cookie(response, user)  # quien cambia su propia contraseña sigue dentro
+        set_session_cookie(response, user, remembered)  # quien cambia su propia contraseña sigue dentro
     return UserOut.model_validate(user)
 
 

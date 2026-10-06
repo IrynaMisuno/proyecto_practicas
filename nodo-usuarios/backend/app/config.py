@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     # Obligatoria: postgresql+psycopg://usuario:contraseña@servidor:puerto/base_de_datos
     database_url: str
     token_minutes: int = 60
+    # Duración de la sesión con «Recordarme en este equipo» marcado.
+    remember_days: int = 30
     # La cookie de sesión solo viaja por HTTPS. Ponla a false únicamente si sirves la app por HTTP.
     cookie_secure: bool = True
     admin_email: str | None = None

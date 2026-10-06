@@ -40,7 +40,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
-export const login = (email: string, password: string) => request<CurrentUser>("/auth/login", json("POST", { email, password }));
+export const login = (email: string, password: string, remember: boolean) => request<CurrentUser>("/auth/login", json("POST", { email, password, remember }));
 export const logout = () => request<void>("/auth/logout", { method: "POST" });
 export const loadCurrentUser = () => request<CurrentUser>("/auth/me");
 

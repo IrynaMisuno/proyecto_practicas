@@ -100,7 +100,7 @@ Todas las rutas empiezan por `/api`. Salvo el login, todas exigen sesión (401 s
 
 | Método | Ruta | Permiso | Uso |
 | --- | --- | --- | --- |
-| `POST` | `/auth/login` | — | `{"email", "password"}`; crea la cookie de sesión. |
+| `POST` | `/auth/login` | — | `{"email", "password", "remember"?}`; crea la cookie de sesión (30 días con `remember: true`). |
 | `POST` | `/auth/logout` | — | Borra la cookie. |
 | `GET` | `/auth/me` | sesión | Usuario actual con su rol y permisos. |
 | `POST` | `/auth/forgot-password` | — | `{"email"}`; responde siempre 202 con el mismo mensaje. |
@@ -123,7 +123,7 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
 
 - **Contraseñas**: hash Argon2id (`pwdlib`). Nunca se guardan en claro ni salen en las respuestas.
 - **Política**: entre 10 y 128 caracteres, con mayúscula, minúscula, número y símbolo. Se valida en el servidor; el formulario muestra los requisitos en vivo.
-- **Sesión**: JWT firmado con `SECRET_KEY`, caduca en 60 minutos (`TOKEN_MINUTES`). Va en una cookie `httpOnly` (JavaScript no puede leerla), `Secure` (solo viaja por HTTPS; `COOKIE_SECURE=true` por defecto), `SameSite=Strict` y restringida a `/api`. En cada petición se recarga el usuario: si lo eliminan o lo suspenden, pierde el acceso al momento.
+- **Sesión**: JWT firmado con `SECRET_KEY`. Sin «Recordarme», la cookie es de sesión (el navegador la borra al cerrarse) y el token caduca en 60 minutos (`TOKEN_MINUTES`). Con «Recordarme en este equipo», cookie y token duran 30 días (`REMEMBER_DAYS`); el token lleva esa marca (`rem`) para conservarla cuando la cookie se renueva al cambiar tu propia contraseña. La app nunca guarda la contraseña: la recuerda, si quieres, el gestor de contraseñas del navegador (campos con `autocomplete="username"` y `"current-password"`). Va en una cookie `httpOnly` (JavaScript no puede leerla), `Secure` (solo viaja por HTTPS; `COOKIE_SECURE=true` por defecto), `SameSite=Strict` y restringida a `/api`. En cada petición se recarga el usuario: si lo eliminan o lo suspenden, pierde el acceso al momento.
 - **Login**: el mensaje es el mismo si el email no existe o la contraseña es incorrecta, y el tiempo de respuesta también. Tras 5 fallos en 15 minutos se bloquea esa combinación de email e IP.
 - **Recuperación de contraseña**:
   - `forgot-password` responde siempre lo mismo, exista o no el email, para no revelar qué cuentas hay.
