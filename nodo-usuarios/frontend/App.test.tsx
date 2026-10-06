@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { useAuth } from "./hooks/useAuth";
 import { useResetPassword } from "./hooks/useResetPassword";
-import { authValue } from "./test/fixtures";
+import { authValue } from "./test-utils/fixtures";
 
 vi.mock("./hooks/useAuth");
 vi.mock("./hooks/useResetPassword");

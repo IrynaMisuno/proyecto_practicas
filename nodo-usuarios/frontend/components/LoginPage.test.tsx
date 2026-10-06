@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../errors";
 import { useAuth } from "../hooks/useAuth";
-import { authValue } from "../test/fixtures";
+import { authValue } from "../test-utils/fixtures";
 import { LoginPage } from "./LoginPage";
 
 // Sustituye el hook por una versión simulada: el test no hace peticiones reales.

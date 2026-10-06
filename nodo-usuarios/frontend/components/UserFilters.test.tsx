@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { roles } from "../test/fixtures";
+import { roles } from "../test-utils/fixtures";
 import { UserFilters, type UserFilterValues } from "./UserFilters";
 
 const values: UserFilterValues = { query: "", roleId: "all", status: "all" };

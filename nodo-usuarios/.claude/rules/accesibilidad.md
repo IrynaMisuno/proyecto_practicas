@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/**/*.tsx"
+  - "frontend/**/*.tsx"
   - "index.html"
 ---
 
@@ -9,7 +9,7 @@ paths:
 Al justificar un cambio de accesibilidad, cita el criterio WCAG (p. ej. «1.4.3 Contraste mínimo», «2.1.1 Teclado», «3.3.1 Identificación de errores»).
 
 ## Formularios
-- Cada campo tiene una etiqueta visible: usa `Field` de `src/components/ui/`. Si no hay etiqueta visible, añade un texto oculto con `sr-only` dentro del `<label>`, como en `UserFilters.tsx`.
+- Cada campo tiene una etiqueta visible: usa `Field` de `frontend/components/ui/`. Si no hay etiqueta visible, añade un texto oculto con `sr-only` dentro del `<label>`, como en `UserFilters.tsx`.
 - Marca los errores con `aria-invalid` en el campo y el mensaje con `role="alert"` (ya lo hacen `Field` y `FormError`).
 - Pon `autoComplete` correcto: `email`, `current-password`, `new-password`.
 - No informes solo con color: acompáñalo de texto. `PasswordChecklist` añade ": cumplido"/": pendiente" con `sr-only`.

@@ -6,7 +6,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import { useRoles } from "../hooks/useRoles";
 import { useUsers } from "../hooks/useUsers";
 import { ApiError } from "../errors";
-import { authValue, currentAdmin, luis, permissions, roles, users } from "../test/fixtures";
+import { authValue, currentAdmin, luis, permissions, roles, users } from "../test-utils/fixtures";
 import { Dashboard } from "./Dashboard";
 
 vi.mock("../hooks/useAuth");

@@ -15,6 +15,6 @@ export default defineConfig({
   test: {
     // jsdom simula un navegador para poder pintar componentes en los tests.
     environment: "jsdom",
-    setupFiles: "./src/test/setup.ts",
+    setupFiles: "./frontend/test-utils/setup.ts",
   },
 });

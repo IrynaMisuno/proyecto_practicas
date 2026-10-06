@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ShieldCheck, Users } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
-import { currentAdmin } from "../test/fixtures";
+import { currentAdmin } from "../test-utils/fixtures";
 import { Sidebar, type SidebarSection } from "./Sidebar";
 
 const sections: SidebarSection[] = [

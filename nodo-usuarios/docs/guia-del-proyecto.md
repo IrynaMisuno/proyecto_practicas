@@ -31,7 +31,7 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | `app/routers/` | Endpoints de autenticación, usuarios y roles. |
 | `tests/` | Pruebas con pytest y una base de datos temporal. |
 
-### Front-end (`src/`)
+### Front-end (`frontend/`)
 
 | Ruta | Responsabilidad |
 | --- | --- |
@@ -54,7 +54,7 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | `components/PasswordChecklist.tsx` | Requisitos de contraseña en vivo; la misma política que el backend. |
 | `components/AuthShell.tsx`, `BackToLogin.tsx` | Marco común de las pantallas sin sesión. |
 | `components/ui/` | Piezas genéricas exportadas desde `index.ts`: `Modal`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, insignias, `Toast`, etc., y los estilos. |
-| `test/` | Configuración de Vitest y datos de prueba. Cada componente tiene su `*.test.tsx` al lado. |
+| `test-utils/` | Configuración de Vitest y datos de prueba. Cada componente tiene su `*.test.tsx` al lado. |
 
 ## 4. Modelo de datos
 

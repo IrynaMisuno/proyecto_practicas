@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { permissions, readerRole } from "../test/fixtures";
+import { permissions, readerRole } from "../test-utils/fixtures";
 import { RoleCard } from "./RoleCard";
 
 const labels = new Map(permissions.map((permission) => [permission.key, permission.label]));

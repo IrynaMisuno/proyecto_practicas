@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../errors";
-import { permissions } from "../test/fixtures";
+import { permissions } from "../test-utils/fixtures";
 import { RoleDialog } from "./RoleDialog";
 
 async function createAnalyst() {

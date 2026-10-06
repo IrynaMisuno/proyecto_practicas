@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../errors";
-import { adminRole, ana, roles } from "../test/fixtures";
+import { adminRole, ana, roles } from "../test-utils/fixtures";
 import { UserDialog } from "./UserDialog";
 
 async function inviteNewUser() {

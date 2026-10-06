@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { ana, roles, users } from "../test/fixtures";
+import { ana, roles, users } from "../test-utils/fixtures";
 import { UsersView } from "./UsersView";
 
 function renderView(props: Partial<ComponentProps<typeof UsersView>> = {}) {

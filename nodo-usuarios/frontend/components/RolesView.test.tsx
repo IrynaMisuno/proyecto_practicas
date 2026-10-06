@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { permissions, roles, users } from "../test/fixtures";
+import { permissions, roles, users } from "../test-utils/fixtures";
 import { RolesView } from "./RolesView";
 
 describe("RolesView", () => {

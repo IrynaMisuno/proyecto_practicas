@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { users } from "../test/fixtures";
+import { users } from "../test-utils/fixtures";
 import { UserStats } from "./UserStats";
 
 describe("UserStats", () => {
