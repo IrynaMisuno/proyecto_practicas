@@ -16,6 +16,7 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 - `npm run db:revision -- "mensaje"`: genera una migración en `backend/migrations/versions/` comparando `models.py` con la base de datos (ejecuta antes `db:upgrade`). Revísala siempre.
 - `npm test`: Vitest del front-end en modo vigilancia (`npx vitest run` para una sola pasada). Un archivo: `npx vitest run frontend/components/PasswordChecklist.test.tsx`.
 - `npm run lint` y `npm run build` (`tsc -b` + Vite).
+- `npm run audit`: busca vulnerabilidades conocidas en las dependencias (`npm audit` y `pip-audit`).
 
 ## Normas generales
 
@@ -41,7 +42,7 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 
 Integración continua: `.github/workflows/ci.yml` (en la raíz del repositorio) ejecuta lint, Vitest, build y pytest en cada push a `main` y en cada pull request.
 
-Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend y auditoría de dependencias (`npm audit`, `pip-audit`).
+Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend.
 
 ## Verificación antes de dar un cambio por terminado
 

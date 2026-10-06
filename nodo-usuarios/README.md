@@ -10,7 +10,7 @@ Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arqu
 
 ## Requisitos
 
-- Node.js 20 o superior
+- Node.js 22 o superior (Vite 8 lo necesita)
 - Python 3.12 o superior
 
 ## Puesta en marcha
@@ -21,7 +21,7 @@ Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arqu
 cd backend
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip   # el pip que trae el sistema puede tener vulnerabilidades
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt   # producción + pruebas y auditoría
 cp .env.example .env
 ```
 
