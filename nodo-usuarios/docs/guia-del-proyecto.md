@@ -7,10 +7,13 @@ Nodo es un panel de administración de usuarios. Un usuario inicia sesión con s
 ## 2. Arquitectura
 
 ```
-navegador ──► Vite (localhost:5173) ──/api──► FastAPI (127.0.0.1:8000) ──► PostgreSQL (Docker, 127.0.0.1:5433)
+Desarrollo:  navegador ──HTTPS──► Vite (localhost:5173) ──/api──► FastAPI (127.0.0.1:8000) ──► PostgreSQL (Docker, 127.0.0.1:5433)
+Producción:  navegador ──HTTPS──► Caddy (80/443) ──/api──► FastAPI (red interna) ──► PostgreSQL (red interna)
 ```
 
-Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la interfaz y la API comparten origen: la cookie de sesión funciona sin CORS y puede ser `SameSite=Strict`. En producción, un proxy inverso (nginx, Caddy…) debe cumplir el mismo papel y servir todo por HTTPS con `COOKIE_SECURE=true`.
+Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la interfaz y la API comparten origen: la cookie de sesión funciona sin CORS y puede ser `SameSite=Strict`. En producción, Caddy cumple el mismo papel (ver «Despliegue en producción»).
+
+Todo va por HTTPS, también en desarrollo: Vite usa un certificado autofirmado (`@vitejs/plugin-basic-ssl`), así que la cookie `Secure` se comporta igual que en producción. La primera vez el navegador avisa de que el certificado no es de confianza; acéptalo para `localhost`.
 
 ## 3. Organización de archivos
 
@@ -120,7 +123,7 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
 
 - **Contraseñas**: hash Argon2id (`pwdlib`). Nunca se guardan en claro ni salen en las respuestas.
 - **Política**: entre 10 y 128 caracteres, con mayúscula, minúscula, número y símbolo. Se valida en el servidor; el formulario muestra los requisitos en vivo.
-- **Sesión**: JWT firmado con `SECRET_KEY`, caduca en 60 minutos (`TOKEN_MINUTES`). Va en una cookie `httpOnly` (JavaScript no puede leerla), `SameSite=Strict` y restringida a `/api`. En cada petición se recarga el usuario: si lo eliminan o lo suspenden, pierde el acceso al momento.
+- **Sesión**: JWT firmado con `SECRET_KEY`, caduca en 60 minutos (`TOKEN_MINUTES`). Va en una cookie `httpOnly` (JavaScript no puede leerla), `Secure` (solo viaja por HTTPS; `COOKIE_SECURE=true` por defecto), `SameSite=Strict` y restringida a `/api`. En cada petición se recarga el usuario: si lo eliminan o lo suspenden, pierde el acceso al momento.
 - **Login**: el mensaje es el mismo si el email no existe o la contraseña es incorrecta, y el tiempo de respuesta también. Tras 5 fallos en 15 minutos se bloquea esa combinación de email e IP.
 - **Recuperación de contraseña**:
   - `forgot-password` responde siempre lo mismo, exista o no el email, para no revelar qué cuentas hay.
@@ -138,11 +141,23 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
 - **Entrada estricta**: se rechazan los campos desconocidos, así que no se puede enviar `password_hash`, `id` ni fechas.
 - **Emails únicos**: se normalizan a minúsculas, y una restricción `UNIQUE` en la base de datos cubre las altas simultáneas.
 - **Integridad**: no puedes eliminarte ni desactivarte, no se borran roles asignados y siempre debe quedar un usuario activo con `users:write` y `roles:write`.
-- **Cabeceras**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Cache-Control: no-store` en la API.
+- **Cabeceras**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Cache-Control: no-store` en la API. En producción, Caddy añade HSTS y una política de contenido (CSP) que solo permite recursos propios y la fuente de Google Fonts. HSTS no se envía en desarrollo: en `localhost` obligaría a usar HTTPS en todas las apps locales.
 
 Correo: sin `SMTP_HOST`, los enlaces de recuperación y de invitación se escriben en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.
 
-Límites conocidos: el bloqueo de intentos de login y de recuperación vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias); el límite de invitaciones, en cambio, está en la base de datos. La API aplica las migraciones al arrancar, lo que es cómodo en desarrollo; con varios procesos (`--workers`) todos intentarían migrar y crear la semilla a la vez. En producción, ejecuta `alembic upgrade head` como paso previo del despliegue, con un solo proceso, y después arranca los workers. Sirve todo por HTTPS con `COOKIE_SECURE=true`.
+Límites conocidos: el bloqueo de intentos de login y de recuperación vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias); el límite de invitaciones, en cambio, está en la base de datos. La API aplica las migraciones al arrancar, lo que es cómodo en desarrollo; con varios procesos (`--workers`) todos intentarían migrar y crear la semilla a la vez. Por eso la imagen de producción arranca un solo proceso; si algún día hacen falta varios, ejecuta antes `alembic upgrade head` como paso aparte del despliegue y lleva los límites de intentos a la base de datos.
+
+### Despliegue en producción
+
+`docker-compose.produccion.yml` levanta tres contenedores. Solo Caddy publica puertos:
+
+| Servicio | Qué hace |
+| --- | --- |
+| `web` | Caddy con el front-end compilado (`docker/produccion/web.Dockerfile`). Pide y renueva solo el certificado de Let's Encrypt para `DOMINIO`, redirige HTTP a HTTPS, añade HSTS y CSP, y pasa `/api` a la API. |
+| `api` | FastAPI (`backend/Dockerfile`), con un usuario sin privilegios y `--proxy-headers` para recibir la IP real del visitante desde Caddy (el bloqueo de intentos va por email + IP). |
+| `db` | PostgreSQL 18, sin puertos publicados. |
+
+La configuración y los secretos van en `.env.produccion` (plantilla en `.env.produccion.example`; no se sube). Los `.dockerignore` solo dejan entrar en las imágenes lo necesario: nunca `.env`, `.venv` ni pruebas.
 
 ## 7. Comandos
 
@@ -151,11 +166,12 @@ Límites conocidos: el bloqueo de intentos de login y de recuperación vive en m
 | `npm start` | Arranca PostgreSQL (si no lo está), la API y Vite a la vez en un solo terminal. |
 | `npm run db:start` / `npm run db:stop` | Arranca o detiene el PostgreSQL de Docker. |
 | `npm run api` | Arranca FastAPI con recarga automática en el puerto 8000. |
-| `npm run dev` | Arranca Vite en el puerto 5173. |
+| `npm run dev` | Arranca Vite en `https://localhost:5173`. |
 | `npm run test:api` | Ejecuta las pruebas del backend. |
 | `npm run db:upgrade` | Aplica las migraciones pendientes (`alembic upgrade head`). |
 | `npm run db:revision -- "mensaje"` | Genera una migración nueva comparando los modelos con la base de datos. |
 | `npm test` | Ejecuta las pruebas del front-end (Vitest) y las repite al guardar; `npx vitest run` para una sola pasada. |
 | `npm run lint` / `npm run build` | Análisis estático y compilación del front-end. |
+| `npm run audit` | Busca vulnerabilidades conocidas en las dependencias (`npm audit` y `pip-audit`). |
 
 Para empezar con una base de datos vacía, detén la API y ejecuta `docker compose down -v` (borra el volumen con todos los datos); `npm start` la crea de nuevo, aplica todas las migraciones y crea los roles y el administrador de `.env`.

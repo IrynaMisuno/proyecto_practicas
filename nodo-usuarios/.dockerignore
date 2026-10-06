@@ -1,0 +1,9 @@
+# Imagen web de producción: solo lo necesario para compilar el front-end.
+*
+!package.json
+!package-lock.json
+!index.html
+!vite.config.ts
+!tsconfig*.json
+!frontend
+!docker/produccion/Caddyfile

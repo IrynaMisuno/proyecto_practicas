@@ -39,7 +39,8 @@ def client() -> Iterator[TestClient]:
     reset_database()
     login_throttle._failures.clear()
     reset_throttle._failures.clear()
-    with TestClient(app) as test_client:  # el lifespan aplica las migraciones y la semilla
+    # Por HTTPS, como en producción: la cookie de sesión es Secure y no viajaría por HTTP.
+    with TestClient(app, base_url="https://testserver") as test_client:  # el lifespan aplica las migraciones y la semilla
         yield test_client
 
 

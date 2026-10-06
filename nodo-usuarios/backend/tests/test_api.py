@@ -13,14 +13,14 @@ def login(client: TestClient, email: str, password: str = STRONG_PASSWORD):
 
 # --- Autenticación ---------------------------------------------------------
 
-def test_login_sets_httponly_cookie_and_returns_permissions(client: TestClient):
+def test_login_sets_secure_httponly_cookie_and_returns_permissions(client: TestClient):
     response = login(client, ADMIN["email"], ADMIN["password"])
     assert response.status_code == 200
     body = response.json()
     assert body["role_name"] == "Administrador"
     assert set(body["permissions"]) == {"users:read", "users:write", "roles:read", "roles:write"}
     cookie = response.headers["set-cookie"].lower()
-    assert "httponly" in cookie and "samesite=strict" in cookie
+    assert "httponly" in cookie and "samesite=strict" in cookie and "secure" in cookie
     assert client.get("/api/auth/me").json()["email"] == ADMIN["email"]
 
 

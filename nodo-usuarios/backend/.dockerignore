@@ -1,0 +1,7 @@
+# Solo entra en la imagen lo necesario: nunca .env, .venv, pruebas ni bases de datos locales.
+*
+!requirements.txt
+!alembic.ini
+!app
+!migrations
+**/__pycache__

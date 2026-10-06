@@ -50,7 +50,7 @@ npm install
 npm run dev
 ```
 
-Abre `http://localhost:5173` e inicia sesión con el administrador de `.env`. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
+Abre `https://localhost:5173` e inicia sesión con el administrador de `.env`. La primera vez el navegador avisa de que el certificado no es de confianza: es el autofirmado de desarrollo, acéptalo para `localhost`. Por `http://` no responde, porque la cookie de sesión solo viaja por HTTPS. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
 
 **Atajo:** `npm start` arranca la API y el front-end a la vez en un solo terminal, con la salida de cada uno marcada como `[api]` y `[web]`. Ctrl+C detiene los dos.
 
@@ -81,6 +81,17 @@ Para cambiar el esquema:
 
 Otros comandos, desde `backend/`: `.venv/bin/alembic current` (versión actual), `.venv/bin/alembic history` y `.venv/bin/alembic downgrade -1` (deshace la última).
 
+## Despliegue en producción
+
+Necesitas un servidor con Docker, un dominio que apunte a él (registro DNS A/AAAA) y los puertos 80 y 443 abiertos.
+
+```bash
+cp .env.produccion.example .env.produccion   # rellena DOMINIO, secretos, administrador y SMTP
+docker compose -f docker-compose.produccion.yml --env-file .env.produccion up -d --build
+```
+
+Caddy obtiene el certificado HTTPS de Let's Encrypt automáticamente y lo renueva solo. La app queda en `https://DOMINIO`; la API y PostgreSQL no son accesibles desde fuera. Para actualizar, vuelve a ejecutar el mismo comando: la API aplica las migraciones pendientes al arrancar. Detalles en la [guía del proyecto](docs/guia-del-proyecto.md#despliegue-en-producción).
+
 ## Comprobaciones
 
 ```bash
@@ -88,6 +99,7 @@ npm run test:api   # pruebas del backend (pytest)
 npx vitest run     # pruebas del front-end (Vitest)
 npm run lint
 npm run build
+npm run audit      # vulnerabilidades conocidas en las dependencias
 ```
 
 GitHub Actions ejecuta estas mismas comprobaciones en cada push a `main` y en cada pull request (`.github/workflows/ci.yml`, en la raíz del repositorio).

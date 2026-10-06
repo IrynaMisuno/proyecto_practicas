@@ -119,7 +119,7 @@ def test_requests_are_throttled_per_email(client: TestClient, outbox: list[dict]
 
 def test_admin_password_change_closes_that_users_sessions(admin: TestClient):
     create_user(admin, "sesion@example.com")
-    other = TestClient(admin.app)
+    other = TestClient(admin.app, base_url="https://testserver")
     assert login(other, "sesion@example.com", STRONG_PASSWORD).status_code == 200
     user_id = next(user["id"] for user in admin.get("/api/users").json() if user["email"] == "sesion@example.com")
     admin.patch(f"/api/users/{user_id}", json={"password": "Cambiada-Por-Admin-1"})
