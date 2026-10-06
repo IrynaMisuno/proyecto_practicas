@@ -14,7 +14,7 @@ paths:
 - Estilo PEP 8, salvo la longitud de línea: el código actual usa líneas largas (hasta ~155 caracteres) y no hace falta partirlas. Todavía no hay Ruff configurado: no lo ejecutes como si existiera.
 - Tipado completo con anotaciones (`str | None`, `Annotated[...]`); estilo SQLAlchemy 2 (`select()`, `db.scalars`, `db.get`).
 - Errores: `raise HTTPException(status.HTTP_..., "Mensaje en español.")`. El manejador de `main.py` los convierte en `{"error", "fields"}`; no devuelvas otro formato.
-- Códigos: 401 sin sesión, 403 sin permiso, 404 no existe, 409 duplicado o regla de integridad, 422 datos no válidos, 429 demasiados intentos.
+- Códigos: 401 sin sesión, 403 sin permiso, 404 no existe, 409 duplicado o regla de integridad, 412 versión desactualizada (`expected_updated_at`), 422 datos no válidos, 429 demasiados intentos.
 - Busca y reutiliza helpers como `get_user_or_404`, `ensure_role_exists` y `commit_or_conflict` antes de escribir otros nuevos.
 - Usa `HTTP_422_UNPROCESSABLE_CONTENT`, no el nombre antiguo `..._ENTITY`.
 

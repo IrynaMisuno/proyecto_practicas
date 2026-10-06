@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import * as api from "../data";
 import { errorMessage } from "../errors";
 import { compareByName } from "../format";
-import type { NewUserDraft, User, UserDraft } from "../types";
+import type { NewUserDraft, User, UserUpdate } from "../types";
 
 /** Usuarios y sus operaciones. Con `enabled` a false no se cargan (el rol no tiene `users:read`). */
 export function useUsers(enabled: boolean) {
@@ -31,7 +31,7 @@ export function useUsers(enabled: boolean) {
     setUsers((current) => [...(current ?? []), created].sort(compareByName));
   }
 
-  async function updateUser(userId: string, draft: Partial<UserDraft>) {
+  async function updateUser(userId: string, draft: UserUpdate) {
     const updated = await api.updateUser(userId, draft);
     setUsers((current) => current?.map((item) => item.id === updated.id ? updated : item) ?? null);
   }
