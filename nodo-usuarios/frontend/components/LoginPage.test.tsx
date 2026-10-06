@@ -29,7 +29,23 @@ describe("LoginPage", () => {
 
     await submit("ana@example.com", "Segura-2026x");
 
-    expect(login).toHaveBeenCalledWith("ana@example.com", "Segura-2026x");
+    expect(login).toHaveBeenCalledWith("ana@example.com", "Segura-2026x", false);
+  });
+
+  it("pide recordar la sesión si se marca «Recordarme en este equipo»", async () => {
+    render(<LoginPage onForgotPassword={vi.fn()} />);
+
+    await userEvent.setup().click(screen.getByRole("checkbox", { name: "Recordarme en este equipo" }));
+    await submit("ana@example.com", "Segura-2026x");
+
+    expect(login).toHaveBeenCalledWith("ana@example.com", "Segura-2026x", true);
+  });
+
+  it("prepara los campos para el gestor de contraseñas del navegador", () => {
+    render(<LoginPage onForgotPassword={vi.fn()} />);
+
+    expect(screen.getByLabelText("Email")).toHaveAttribute("autocomplete", "username");
+    expect(screen.getByLabelText("Contraseña")).toHaveAttribute("autocomplete", "current-password");
   });
 
   it("muestra el error y vacía la contraseña si falla", async () => {

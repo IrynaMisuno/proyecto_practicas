@@ -1,13 +1,16 @@
 import os
-import tempfile
 from collections.abc import Iterator
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.engine import make_url
 
-_db_dir = tempfile.mkdtemp()
-os.environ["DATABASE_URL"] = f"sqlite:///{Path(_db_dir) / 'test.db'}"
+# PostgreSQL de docker-compose.yml (npm run db:start); en la CI llega por TEST_DATABASE_URL.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+psycopg://nodo:nodo@127.0.0.1:5433/nodo_test")
+# Cada prueba borra todas las tablas: nunca contra una base de datos que no sea de pruebas.
+if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
+    raise RuntimeError("TEST_DATABASE_URL debe apuntar a una base de datos cuyo nombre acabe en _test.")
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["SECRET_KEY"] = "test-secret-key-that-is-long-enough-for-hs256"
 os.environ["ADMIN_EMAIL"] = "admin@example.com"
 os.environ["ADMIN_PASSWORD"] = "Admin-Pass-2026"
@@ -36,7 +39,8 @@ def client() -> Iterator[TestClient]:
     reset_database()
     login_throttle._failures.clear()
     reset_throttle._failures.clear()
-    with TestClient(app) as test_client:  # el lifespan aplica las migraciones y la semilla
+    # Por HTTPS, como en producción: la cookie de sesión es Secure y no viajaría por HTTP.
+    with TestClient(app, base_url="https://testserver") as test_client:  # el lifespan aplica las migraciones y la semilla
         yield test_client
 
 

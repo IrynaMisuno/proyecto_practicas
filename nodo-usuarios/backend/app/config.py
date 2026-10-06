@@ -8,15 +8,19 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     secret_key: str = Field(min_length=32)
-    database_url: str = "sqlite:///./nodo.db"
+    # Obligatoria: postgresql+psycopg://usuario:contraseña@servidor:puerto/base_de_datos
+    database_url: str
     token_minutes: int = 60
-    cookie_secure: bool = False
+    # Duración de la sesión con «Recordarme en este equipo» marcado.
+    remember_days: int = 30
+    # La cookie de sesión solo viaja por HTTPS. Ponla a false únicamente si sirves la app por HTTP.
+    cookie_secure: bool = True
     admin_email: str | None = None
     admin_password: str | None = None
     admin_name: str = "Administrador"
 
     # Recuperación de contraseña
-    frontend_url: str = "http://localhost:5173"
+    frontend_url: str = "https://localhost:5173"
     reset_token_minutes: int = 30
     invite_token_hours: int = 24
     invite_max_per_day: int = 5

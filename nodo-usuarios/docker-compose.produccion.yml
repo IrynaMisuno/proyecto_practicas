@@ -1,0 +1,54 @@
+# Producción: PostgreSQL + API + Caddy (front-end y HTTPS automático).
+# Uso: docker compose -f docker-compose.produccion.yml --env-file .env.produccion up -d --build
+# Solo Caddy publica puertos (80 y 443); la API y PostgreSQL quedan en la red interna.
+name: nodo-usuarios-produccion
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nodo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env.produccion}
+      POSTGRES_DB: nodo
+    volumes:
+      - datos-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nodo -d nodo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env.produccion
+    environment:
+      DATABASE_URL: postgresql+psycopg://nodo:${POSTGRES_PASSWORD}@db:5432/nodo
+      FRONTEND_URL: https://${DOMINIO:?Falta DOMINIO en .env.produccion}
+      COOKIE_SECURE: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/produccion/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - caddy-datos:/data  # certificados: si se pierden, Caddy los vuelve a pedir
+      - caddy-config:/config
+    depends_on:
+      - api
+
+volumes:
+  datos-postgres:
+  caddy-datos:
+  caddy-config:

@@ -1,6 +1,9 @@
 node_modules
 dist
 *.local
+# Certificados de desarrollo de mkcert (npm run certs): la clave privada nunca se sube.
+certs/
 .env
 .env.*
 !.env.example
+!.env.produccion.example

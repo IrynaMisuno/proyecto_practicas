@@ -19,10 +19,10 @@ paths:
 - Usa `HTTP_422_UNPROCESSABLE_CONTENT`, no el nombre antiguo `..._ENTITY`.
 
 ## Base de datos
-- No hay Alembic: `create_all` solo crea tablas. Si añades una columna a una tabla existente, añádela también en `upgrade_schema` (`app/database.py`) o fallará con bases de datos ya creadas.
-- Las fechas se guardan en UTC (`datetime.now(UTC)`); en la salida usa `UtcDatetime`.
-- Las claves foráneas de SQLite se activan en `make_engine`; no lo quites.
-- Para empezar con una base de datos vacía: detén la API y borra `backend/nodo.db`.
+- PostgreSQL en todos los entornos (desarrollo, pruebas, CI y producción). No añadas código específico de otra base de datos.
+- El esquema lo cambian solo las migraciones de Alembic: edita `app/models.py`, genera la migración con `npm run db:revision -- "mensaje"`, revísala y súbela en el mismo commit. `tests/test_migrations.py` falla si falta.
+- Las fechas son `DateTime(timezone=True)` y se crean con `datetime.now(UTC)`; la sesión de la base de datos va en UTC (`make_engine`).
+- Para empezar con una base de datos vacía: detén la API y ejecuta `docker compose down -v`.
 
 ## Dependencias
-- Añade cada dependencia nueva a `requirements.txt` con versión mínima (`paquete>=x.y`) e instálala en `backend/.venv`.
+- Añade cada dependencia de producción a `requirements.txt`, y las de pruebas o herramientas a `requirements-dev.txt`, con versión mínima (`paquete>=x.y`). Instálalas con `.venv/bin/pip install -r requirements-dev.txt` y pasa `npm run audit`.

@@ -1,8 +1,12 @@
+from datetime import UTC, datetime, timedelta
+
+import jwt
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models import Role, User
+from app.security import COOKIE_NAME
 
 from .conftest import ADMIN, STRONG_PASSWORD, create_user, role_id
 
@@ -13,15 +17,66 @@ def login(client: TestClient, email: str, password: str = STRONG_PASSWORD):
 
 # --- Autenticación ---------------------------------------------------------
 
-def test_login_sets_httponly_cookie_and_returns_permissions(client: TestClient):
+def test_login_sets_secure_httponly_cookie_and_returns_permissions(client: TestClient):
     response = login(client, ADMIN["email"], ADMIN["password"])
     assert response.status_code == 200
     body = response.json()
     assert body["role_name"] == "Administrador"
     assert set(body["permissions"]) == {"users:read", "users:write", "roles:read", "roles:write"}
     cookie = response.headers["set-cookie"].lower()
-    assert "httponly" in cookie and "samesite=strict" in cookie
+    assert "httponly" in cookie and "samesite=strict" in cookie and "secure" in cookie
     assert client.get("/api/auth/me").json()["email"] == ADMIN["email"]
+
+
+def session_expires_in(client: TestClient) -> timedelta:
+    token = client.cookies.get(COOKIE_NAME, path="/api")
+    expires = datetime.fromtimestamp(jwt.decode(token, options={"verify_signature": False})["exp"], UTC)
+    return expires - datetime.now(UTC)
+
+
+def test_login_without_remember_uses_browser_session_cookie(client: TestClient):
+    response = client.post("/api/auth/login", json=ADMIN)
+
+    assert response.status_code == 200
+    # Sin Max-Age ni Expires: el navegador la borra al cerrarse.
+    cookie = response.headers["set-cookie"].lower()
+    assert "max-age" not in cookie and "expires" not in cookie
+    assert timedelta(minutes=59) < session_expires_in(client) <= timedelta(minutes=60)
+
+
+def test_login_with_remember_keeps_session_for_30_days(client: TestClient):
+    response = client.post("/api/auth/login", json={**ADMIN, "remember": True})
+
+    assert response.status_code == 200
+    assert f"max-age={30 * 24 * 3600}" in response.headers["set-cookie"].lower()
+    assert timedelta(days=29, hours=23) < session_expires_in(client) <= timedelta(days=30)
+    assert client.get("/api/auth/me").status_code == 200
+
+
+def test_login_rejects_invalid_remember_value(client: TestClient):
+    assert client.post("/api/auth/login", json={**ADMIN, "remember": "quizá"}).status_code == 422
+
+
+def test_changing_own_password_keeps_remembered_session(client: TestClient):
+    client.post("/api/auth/login", json={**ADMIN, "remember": True})
+    me = client.get("/api/auth/me").json()
+
+    response = client.patch(f"/api/users/{me['id']}", json={"password": "Nueva-Clave-2026!"})
+
+    assert response.status_code == 200
+    assert f"max-age={30 * 24 * 3600}" in response.headers["set-cookie"].lower()
+    assert session_expires_in(client) > timedelta(days=29)
+    assert client.get("/api/auth/me").status_code == 200
+
+
+def test_remembered_session_ends_when_password_changes_elsewhere(admin: TestClient):
+    user = create_user(admin, "recordada@example.com")
+    other = TestClient(admin.app, base_url="https://testserver")
+    assert other.post("/api/auth/login", json={"email": "recordada@example.com", "password": STRONG_PASSWORD, "remember": True}).status_code == 200
+
+    assert admin.patch(f"/api/users/{user['id']}", json={"password": "Nueva-Clave-2026!"}).status_code == 200
+
+    assert other.get("/api/auth/me").status_code == 401
 
 
 def test_login_email_is_case_insensitive(client: TestClient):

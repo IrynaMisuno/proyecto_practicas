@@ -1,0 +1,26 @@
+# PostgreSQL para desarrollo y pruebas. La API y Vite se arrancan fuera de Docker (npm start).
+# Las credenciales son solo para desarrollo; el puerto se publica únicamente en 127.0.0.1 para
+# que no sea accesible desde otros equipos. Se usa el 5433 porque el 5432 lo ocupa el CRM.
+name: nodo-usuarios
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: nodo
+      POSTGRES_PASSWORD: nodo
+      POSTGRES_DB: nodo
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # Desde PostgreSQL 18 el volumen se monta en /var/lib/postgresql (no en .../data).
+      - datos-postgres:/var/lib/postgresql
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nodo -d nodo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  datos-postgres:
