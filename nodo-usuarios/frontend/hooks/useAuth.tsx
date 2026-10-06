@@ -7,7 +7,8 @@ export interface AuthContextValue {
   loading: boolean;
   /** La sesión se cerró sola (caducada o invalidada), no porque la persona saliera. */
   sessionExpired: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Con `remember`, la sesión dura 30 días y sobrevive al cierre del navegador. */
+  login: (email: string, password: string, remember: boolean) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   can: (permission: Permission) => boolean;
@@ -41,8 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     sessionExpired,
     refresh,
-    login: async (email, password) => {
-      setUser(await api.login(email, password));
+    login: async (email, password, remember) => {
+      setUser(await api.login(email, password, remember));
       setSessionExpired(false);
     },
     logout: async () => {

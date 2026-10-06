@@ -116,7 +116,7 @@ GitHub Actions ejecuta estas mismas comprobaciones en cada push a `main` y en ca
 
 ## Funciones
 
-- Inicio y cierre de sesión con email y contraseña.
+- Inicio y cierre de sesión con email y contraseña, con «Recordarme en este equipo» (sesión de 30 días). El navegador puede guardar el email y la contraseña con su gestor de contraseñas.
 - «¿Has olvidado tu contraseña?»: enlace por correo, válido 30 minutos y de un solo uso. Al cambiar la contraseña se cierran las sesiones abiertas.
 - Alta, edición, búsqueda, filtrado y baja de usuarios.
 - Roles editables con permisos: `users:read`, `users:write`, `roles:read` y `roles:write`. La interfaz oculta lo que tu rol no permite y la API lo rechaza (403).

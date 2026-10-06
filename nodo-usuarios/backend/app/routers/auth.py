@@ -18,6 +18,7 @@ from ..security import (
     login_throttle,
     new_reset_token,
     reset_throttle,
+    session_lifetime,
     verify_password,
 )
 
@@ -37,12 +38,13 @@ def to_current_user(user: User) -> CurrentUserOut:
     })
 
 
-def set_session_cookie(response: Response, user: User) -> None:
+def set_session_cookie(response: Response, user: User, remember: bool = False) -> None:
+    """Sin «Recordarme», la cookie es de sesión: el navegador la borra al cerrarse."""
     settings = get_settings()
     response.set_cookie(
         COOKIE_NAME,
-        create_access_token(user.id, user.session_version),
-        max_age=settings.token_minutes * 60,
+        create_access_token(user.id, user.session_version, remember),
+        max_age=int(session_lifetime(remember).total_seconds()) if remember else None,
         httponly=True,
         secure=settings.cookie_secure,
         samesite="strict",
@@ -92,7 +94,7 @@ def login(credentials: LoginRequest, request: Request, response: Response, db: D
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Tu cuenta no está activa. Contacta con un administrador.")
 
     login_throttle.reset(throttle_key)
-    set_session_cookie(response, user)
+    set_session_cookie(response, user, credentials.remember)
     return to_current_user(user)
 
 
