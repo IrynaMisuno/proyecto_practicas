@@ -18,7 +18,6 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -44,8 +43,6 @@ def _run(connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        # SQLite casi no admite ALTER TABLE: el modo batch recrea la tabla para cada cambio.
-        render_as_batch=True,
         compare_type=True,
     )
     with context.begin_transaction():

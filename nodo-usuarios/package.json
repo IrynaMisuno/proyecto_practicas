@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "start": "concurrently --names api,web --prefix-colors cyan,magenta --kill-others-on-fail \"npm:api\" \"npm:dev\"",
+    "start": "npm run db:start && concurrently --names api,web --prefix-colors cyan,magenta --kill-others-on-fail \"npm:api\" \"npm:dev\"",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -13,6 +13,8 @@
     "api": "cd backend && .venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
     "test:api": "cd backend && .venv/bin/pytest",
     "audit": "npm audit && cd backend && .venv/bin/pip-audit -r requirements.txt",
+    "db:start": "docker compose up -d --wait db",
+    "db:stop": "docker compose stop db",
     "db:upgrade": "cd backend && .venv/bin/alembic upgrade head",
     "db:revision": "cd backend && .venv/bin/alembic revision --autogenerate -m"
   },

@@ -50,10 +50,6 @@ def set_session_cookie(response: Response, user: User) -> None:
     )
 
 
-def as_utc(value: datetime) -> datetime:
-    return value if value.tzinfo else value.replace(tzinfo=UTC)
-
-
 def issue_password_link(db: Session, user: User, path: str, lifetime: timedelta) -> str:
     """Crea un enlace de un solo uso para elegir contraseña y anula los anteriores del usuario."""
     db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
@@ -133,7 +129,7 @@ def reset_password(payload: ResetPasswordRequest, db: DbSession) -> MessageOut:
     ))
     user = db.get(User, record.user_id) if record else None
     # Sirve para recuperar la contraseña (usuarios activos) y para aceptar una invitación (invitados).
-    if record is None or as_utc(record.expires_at) < now or user is None or user.status not in ("active", "invited"):
+    if record is None or record.expires_at < now or user is None or user.status not in ("active", "invited"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, INVALID_RESET_LINK)
 
     # El hash (lento a propósito) se calcula antes de reclamar el enlace, para no bloquear la base de datos.

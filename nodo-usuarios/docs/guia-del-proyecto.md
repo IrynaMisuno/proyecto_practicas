@@ -2,12 +2,12 @@
 
 ## 1. Propósito
 
-Nodo es un panel de administración de usuarios. Un usuario inicia sesión con su email y contraseña y, según los permisos de su rol, puede consultar o gestionar usuarios y roles. Los datos se guardan en una base de datos SQLite a través de una API FastAPI, con SQLAlchemy como ORM y Alembic para las migraciones del esquema.
+Nodo es un panel de administración de usuarios. Un usuario inicia sesión con su email y contraseña y, según los permisos de su rol, puede consultar o gestionar usuarios y roles. Los datos se guardan en una base de datos PostgreSQL a través de una API FastAPI, con SQLAlchemy como ORM y Alembic para las migraciones del esquema.
 
 ## 2. Arquitectura
 
 ```
-navegador ──► Vite (localhost:5173) ──/api──► FastAPI (127.0.0.1:8000) ──► SQLite (backend/nodo.db)
+navegador ──► Vite (localhost:5173) ──/api──► FastAPI (127.0.0.1:8000) ──► PostgreSQL (Docker, 127.0.0.1:5433)
 ```
 
 Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la interfaz y la API comparten origen: la cookie de sesión funciona sin CORS y puede ser `SameSite=Strict`. En producción, un proxy inverso (nginx, Caddy…) debe cumplir el mismo papel y servir todo por HTTPS con `COOKIE_SECURE=true`.
@@ -20,7 +20,7 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | --- | --- |
 | `app/main.py` | Crea la app, registra los routers bajo `/api`, aplica las migraciones, carga la semilla, traduce errores a `{"error", "fields"}` y añade cabeceras de seguridad. |
 | `app/config.py` | Configuración desde `.env` (pydantic-settings). |
-| `app/database.py` | Motor SQLAlchemy, sesiones, claves foráneas activadas en SQLite, convención de nombres de restricciones y `run_migrations` (Alembic al arrancar). |
+| `app/database.py` | Motor SQLAlchemy (sesión de PostgreSQL en UTC), sesiones, convención de nombres de restricciones y `run_migrations` (Alembic al arrancar). |
 | `app/models.py` | Tablas `roles` y `users` y catálogo de permisos. |
 | `app/schemas.py` | Validación de entrada (política de contraseña, email, permisos) y modelos de salida sin datos sensibles. |
 | `app/security.py` | Hash Argon2id, JWT, tokens de recuperación y límites de intentos. |
@@ -73,9 +73,15 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 El esquema no se crea con `create_all`: lo crean y lo cambian las migraciones de `backend/migrations/versions/`, en cadena (cada una indica la anterior en `down_revision`). La base de datos guarda la última aplicada en la tabla `alembic_version`, y al arrancar la API ejecuta las pendientes (`alembic upgrade head`).
 
 - Para cambiar el esquema: edita `app/models.py`, ejecuta `npm run db:upgrade` y `npm run db:revision -- "mensaje"`, revisa el archivo generado y súbelo junto al cambio del modelo. Autogenerate no detecta los renombrados ni las migraciones de datos.
-- Las migraciones usan el modo batch de Alembic, que recrea la tabla, porque SQLite casi no admite `ALTER TABLE`. Los índices y restricciones tienen nombres fijos (`NAMING_CONVENTION` en `app/database.py`) para poder modificarlos después.
-- `0001` (esquema inicial) contiene las cuatro tablas tal como estaban antes de usar Alembic.
-- Una base de datos creada antes de Alembic (sin `alembic_version`) se convierte sola la primera vez: se guarda una copia en `nodo-antes-de-alembic.db`, se recrean las tablas con la migración `0001` y se copian los datos, todo en una sola transacción. Si algo falla, la base de datos queda como estaba.
+- Los índices y restricciones tienen nombres fijos (`NAMING_CONVENTION` en `app/database.py`) para poder modificarlos después.
+- `0001` (esquema inicial) crea las cuatro tablas.
+
+### PostgreSQL
+
+- En desarrollo, PostgreSQL 18 corre en Docker (`docker-compose.yml`), publicado solo en `127.0.0.1:5433` (el 5432 lo usa el CRM). Los datos viven en el volumen `nodo-usuarios_datos-postgres`. Las credenciales del Compose son solo para desarrollo.
+- Hay dos bases de datos: `nodo` para la app y `nodo_test` para las pruebas. `tests/conftest.py` vacía `nodo_test` antes de cada prueba y se niega a usar una base cuyo nombre no acabe en `_test`.
+- Las pruebas, la CI (contenedor de servicio de GitHub Actions) y producción usan PostgreSQL: lo que pasa las pruebas se comporta igual en producción.
+- Las fechas son `timestamptz` y la sesión de la base de datos va en UTC, así que la API las devuelve en UTC (`2026-10-06T08:27:07Z`).
 
 Solo los usuarios `active` pueden iniciar sesión. Al arrancar por primera vez se crean tres roles:
 
@@ -142,7 +148,8 @@ Límites conocidos: el bloqueo de intentos de login y de recuperación vive en m
 
 | Comando | Qué hace |
 | --- | --- |
-| `npm start` | Arranca la API y Vite a la vez en un solo terminal. |
+| `npm start` | Arranca PostgreSQL (si no lo está), la API y Vite a la vez en un solo terminal. |
+| `npm run db:start` / `npm run db:stop` | Arranca o detiene el PostgreSQL de Docker. |
 | `npm run api` | Arranca FastAPI con recarga automática en el puerto 8000. |
 | `npm run dev` | Arranca Vite en el puerto 5173. |
 | `npm run test:api` | Ejecuta las pruebas del backend. |
@@ -151,4 +158,4 @@ Límites conocidos: el bloqueo de intentos de login y de recuperación vive en m
 | `npm test` | Ejecuta las pruebas del front-end (Vitest) y las repite al guardar; `npx vitest run` para una sola pasada. |
 | `npm run lint` / `npm run build` | Análisis estático y compilación del front-end. |
 
-Para empezar con una base de datos vacía, detén la API y borra `backend/nodo.db`; al arrancar de nuevo se aplican todas las migraciones y se crean los roles y el administrador de `.env`.
+Para empezar con una base de datos vacía, detén la API y ejecuta `docker compose down -v` (borra el volumen con todos los datos); `npm start` la crea de nuevo, aplica todas las migraciones y crea los roles y el administrador de `.env`.

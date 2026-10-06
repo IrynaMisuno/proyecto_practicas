@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     secret_key: str = Field(min_length=32)
-    database_url: str = "sqlite:///./nodo.db"
+    # Obligatoria: postgresql+psycopg://usuario:contraseña@servidor:puerto/base_de_datos
+    database_url: str
     token_minutes: int = 60
     cookie_secure: bool = False
     admin_email: str | None = None

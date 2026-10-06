@@ -4,8 +4,7 @@ Revisión: 0001
 Anterior:
 Fecha: 2026-10-06
 
-Las tablas tal como estaban antes de usar Alembic. Las bases de datos creadas entonces con
-create_all no ejecutan esta migración: run_migrations (app/database.py) las marca con `stamp`.
+Roles, usuarios, enlaces de recuperación o invitación y envíos de invitaciones.
 """
 from collections.abc import Sequence
 

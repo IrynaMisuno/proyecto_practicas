@@ -1,13 +1,16 @@
 import os
-import tempfile
 from collections.abc import Iterator
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.engine import make_url
 
-_db_dir = tempfile.mkdtemp()
-os.environ["DATABASE_URL"] = f"sqlite:///{Path(_db_dir) / 'test.db'}"
+# PostgreSQL de docker-compose.yml (npm run db:start); en la CI llega por TEST_DATABASE_URL.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+psycopg://nodo:nodo@127.0.0.1:5433/nodo_test")
+# Cada prueba borra todas las tablas: nunca contra una base de datos que no sea de pruebas.
+if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
+    raise RuntimeError("TEST_DATABASE_URL debe apuntar a una base de datos cuyo nombre acabe en _test.")
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["SECRET_KEY"] = "test-secret-key-that-is-long-enough-for-hs256"
 os.environ["ADMIN_EMAIL"] = "admin@example.com"
 os.environ["ADMIN_PASSWORD"] = "Admin-Pass-2026"

@@ -3,7 +3,7 @@
 Panel web para administrar usuarios y roles: inicio de sesión con email y contraseña, alta, edición y baja de usuarios, y roles con permisos.
 
 - **Front-end:** React 19 + TypeScript + Vite + Tailwind CSS 4
-- **Backend:** FastAPI + SQLAlchemy 2 + Alembic (migraciones) + SQLite
+- **Backend:** FastAPI + SQLAlchemy 2 + Alembic (migraciones) + PostgreSQL 18
 - **Seguridad:** contraseñas con Argon2id, sesión JWT en cookie httpOnly, permisos comprobados en el servidor
 
 Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arquitectura, la API y las medidas de seguridad.
@@ -12,6 +12,7 @@ Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arqu
 
 - Node.js 22 o superior (Vite 8 lo necesita)
 - Python 3.12 o superior
+- Docker con el plugin Compose (`docker compose version`), para PostgreSQL
 
 ## Puesta en marcha
 
@@ -31,13 +32,14 @@ Edita `backend/.env`:
 - `ADMIN_EMAIL` y `ADMIN_PASSWORD`: el primer administrador. Se crea solo la primera vez, cuando la base de datos no tiene usuarios. La contraseña debe cumplir la política (ver abajo).
 - `SMTP_*` (opcional): servidor de correo para enviar los enlaces de recuperación de contraseña. Si no lo configuras, el enlace aparece en la consola del backend.
 
-Arranca la API (desde la raíz del proyecto):
+Arranca PostgreSQL y la API (desde la raíz del proyecto):
 
 ```bash
+npm run db:start
 npm run api
 ```
 
-La API queda en `http://127.0.0.1:8000` y la documentación interactiva en `http://127.0.0.1:8000/docs`. La base de datos se guarda en `backend/nodo.db` y, al arrancar, la API le aplica las migraciones pendientes de Alembic.
+La API queda en `http://127.0.0.1:8000` y la documentación interactiva en `http://127.0.0.1:8000/docs`. La base de datos es el PostgreSQL de Docker (`npm run db:start`, en `127.0.0.1:5433`) y, al arrancar, la API le aplica las migraciones pendientes de Alembic.
 
 ### 2. Front-end
 
@@ -78,8 +80,6 @@ Para cambiar el esquema:
 5. Sube el cambio del modelo y la migración en el mismo commit.
 
 Otros comandos, desde `backend/`: `.venv/bin/alembic current` (versión actual), `.venv/bin/alembic history` y `.venv/bin/alembic downgrade -1` (deshace la última).
-
-Si tu `nodo.db` se creó antes de usar Alembic, la primera vez que arranques la API la convierte sin perder datos y guarda una copia en `backend/nodo-antes-de-alembic.db`.
 
 ## Comprobaciones
 
