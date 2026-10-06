@@ -3,6 +3,7 @@ import secrets
 import time
 from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
+from typing import NamedTuple
 
 import jwt
 from pwdlib import PasswordHash
@@ -30,24 +31,33 @@ def verify_password(password: str, password_hash: str | None) -> bool:
     return password_hasher.verify(password, password_hash)
 
 
-def create_access_token(user_id: str, session_version: int) -> str:
+class SessionClaims(NamedTuple):
+    user_id: str
+    version: int
+    remember: bool
+
+
+def session_lifetime(remember: bool) -> timedelta:
     settings = get_settings()
+    return timedelta(days=settings.remember_days) if remember else timedelta(minutes=settings.token_minutes)
+
+
+def create_access_token(user_id: str, session_version: int, remember: bool = False) -> str:
     now = datetime.now(UTC)
-    expires = now + timedelta(minutes=settings.token_minutes)
-    payload = {"sub": user_id, "ver": session_version, "iat": now, "exp": expires}
-    return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
+    payload = {"sub": user_id, "ver": session_version, "rem": remember, "iat": now, "exp": now + session_lifetime(remember)}
+    return jwt.encode(payload, get_settings().secret_key, algorithm=ALGORITHM)
 
 
-def decode_access_token(token: str) -> tuple[str, int] | None:
-    """Devuelve (id de usuario, versión de sesión) si el token es válido."""
+def decode_access_token(token: str) -> SessionClaims | None:
+    """Devuelve el usuario, la versión de sesión y si es una sesión recordada, si el token es válido."""
     try:
         payload = jwt.decode(token, get_settings().secret_key, algorithms=[ALGORITHM], options={"require": ["sub", "ver", "exp"]})
     except jwt.PyJWTError:
         return None
-    subject, version = payload.get("sub"), payload.get("ver")
-    if not isinstance(subject, str) or not isinstance(version, int):
+    subject, version, remember = payload.get("sub"), payload.get("ver"), payload.get("rem", False)
+    if not isinstance(subject, str) or not isinstance(version, int) or not isinstance(remember, bool):
         return None
-    return subject, version
+    return SessionClaims(subject, version, remember)
 
 
 def new_reset_token() -> tuple[str, str]:

@@ -2,15 +2,18 @@
 
 ## 1. Propósito
 
-Nodo es un panel de administración de usuarios. Un usuario inicia sesión con su email y contraseña y, según los permisos de su rol, puede consultar o gestionar usuarios y roles. Los datos se guardan en una base de datos SQLite a través de una API FastAPI.
+Nodo es un panel de administración de usuarios. Un usuario inicia sesión con su email y contraseña y, según los permisos de su rol, puede consultar o gestionar usuarios y roles. Los datos se guardan en una base de datos PostgreSQL a través de una API FastAPI, con SQLAlchemy como ORM y Alembic para las migraciones del esquema.
 
 ## 2. Arquitectura
 
 ```
-navegador ──► Vite (localhost:5173) ──/api──► FastAPI (127.0.0.1:8000) ──► SQLite (backend/nodo.db)
+Desarrollo:  navegador ──HTTPS──► Vite (localhost:5173) ──/api──► FastAPI (127.0.0.1:8000) ──► PostgreSQL (Docker, 127.0.0.1:5433)
+Producción:  navegador ──HTTPS──► Caddy (80/443) ──/api──► FastAPI (red interna) ──► PostgreSQL (red interna)
 ```
 
-Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la interfaz y la API comparten origen: la cookie de sesión funciona sin CORS y puede ser `SameSite=Strict`. En producción, un proxy inverso (nginx, Caddy…) debe cumplir el mismo papel y servir todo por HTTPS con `COOKIE_SECURE=true`.
+Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la interfaz y la API comparten origen: la cookie de sesión funciona sin CORS y puede ser `SameSite=Strict`. En producción, Caddy cumple el mismo papel (ver «Despliegue en producción»).
+
+Todo va por HTTPS, también en desarrollo, así que la cookie `Secure` se comporta igual que en producción. Si existe `certs/localhost.pem` (`npm run certs`, con [mkcert](https://github.com/FiloSottile/mkcert)), Vite usa ese certificado, que el equipo reconoce como de confianza. Si no existe, usa uno autofirmado (`@vitejs/plugin-basic-ssl`) y el navegador avisa de que no puede verificarlo. Los certificados de `certs/` no se suben al repositorio.
 
 ## 3. Organización de archivos
 
@@ -18,9 +21,9 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 
 | Ruta | Responsabilidad |
 | --- | --- |
-| `app/main.py` | Crea la app, registra los routers bajo `/api`, crea las tablas, carga la semilla, traduce errores a `{"error", "fields"}` y añade cabeceras de seguridad. |
+| `app/main.py` | Crea la app, registra los routers bajo `/api`, aplica las migraciones, carga la semilla, traduce errores a `{"error", "fields"}` y añade cabeceras de seguridad. |
 | `app/config.py` | Configuración desde `.env` (pydantic-settings). |
-| `app/database.py` | Motor SQLAlchemy, sesiones y claves foráneas activadas en SQLite. |
+| `app/database.py` | Motor SQLAlchemy (sesión de PostgreSQL en UTC), sesiones, convención de nombres de restricciones y `run_migrations` (Alembic al arrancar). |
 | `app/models.py` | Tablas `roles` y `users` y catálogo de permisos. |
 | `app/schemas.py` | Validación de entrada (política de contraseña, email, permisos) y modelos de salida sin datos sensibles. |
 | `app/security.py` | Hash Argon2id, JWT, tokens de recuperación y límites de intentos. |
@@ -29,9 +32,10 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | `app/rules.py` | Regla «siempre debe quedar un administrador activo». |
 | `app/seed.py` | Roles por defecto y primer administrador desde `.env`. |
 | `app/routers/` | Endpoints de autenticación, usuarios y roles. |
-| `tests/` | Pruebas con pytest y una base de datos temporal. |
+| `alembic.ini`, `migrations/` | Configuración de Alembic; `migrations/env.py` toma la URL de `.env` y los modelos de `app/models.py`. Cada cambio del esquema es un archivo en `migrations/versions/`. |
+| `tests/` | Pruebas con pytest y una base de datos temporal; `test_migrations.py` comprueba que las migraciones coinciden con los modelos. |
 
-### Front-end (`src/`)
+### Front-end (`frontend/`)
 
 | Ruta | Responsabilidad |
 | --- | --- |
@@ -42,19 +46,20 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | `format.ts` | Fechas, iniciales, nombres de estado y orden por nombre. |
 | `hooks/useAuth.tsx` | `AuthProvider` y `useAuth`: usuario actual, `login`, `logout`, `can(permiso)`. |
 | `hooks/useUsers.ts`, `useRoles.ts`, `usePermissions.ts` | Datos del panel y sus operaciones; llaman a `data.ts`. |
-| `hooks/useForgotPassword.ts`, `useResetPassword.ts` | Recuperación de contraseña (`/restablecer-contrasena`). |
+| `hooks/useForgotPassword.ts`, `useResetPassword.ts` | Recuperación de contraseña (`/restablecer-contrasena`) y aceptación de invitaciones (`/aceptar-invitacion`). |
 | `hooks/useToast.ts` | Avisos temporales. |
-| `components/Dashboard.tsx` | Panel con sesión: secciones, carga de datos y diálogos. |
+| `components/Dashboard.tsx` | Panel con sesión: secciones, carga de datos y diálogos. Pulsar una sección del menú recarga sus datos y la deja sin filtros. |
 | `components/Sidebar.tsx` | Navegación y cierre de sesión. |
 | `components/UsersView.tsx` | Vista de usuarios: `UserStats`, `UserFilters` y una `UserRow` por usuario. |
+| `components/UserFilters.tsx` | Búsqueda y filtros por rol y estado; cada filtro aplicado se muestra con una cruz para quitarlo. |
 | `components/RolesView.tsx` | Vista de roles: una `RoleCard` por rol con sus permisos y usuarios asignados. |
 | `components/UserDialog.tsx`, `RoleDialog.tsx` | Formularios de alta y edición, con los errores del servidor junto a cada campo. |
 | `components/LoginPage.tsx` | Inicio de sesión con el enlace «¿Has olvidado tu contraseña?». |
-| `components/ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | Solicitud del enlace y elección de la contraseña nueva. |
+| `components/ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | Solicitud del enlace y elección de la contraseña nueva, o de la primera al aceptar una invitación. |
 | `components/PasswordChecklist.tsx` | Requisitos de contraseña en vivo; la misma política que el backend. |
 | `components/AuthShell.tsx`, `BackToLogin.tsx` | Marco común de las pantallas sin sesión. |
-| `components/ui/` | Piezas genéricas exportadas desde `index.ts`: `Modal`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, insignias, `Toast`, etc., y los estilos. |
-| `test/` | Configuración de Vitest y datos de prueba. Cada componente tiene su `*.test.tsx` al lado. |
+| `components/ui/` | Piezas genéricas exportadas desde `index.ts`: `Modal`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, `FilterChip`, insignias, `Toast`, etc., y los estilos. |
+| `test-utils/` | Configuración de Vitest y datos de prueba. Cada componente tiene su `*.test.tsx` al lado. |
 
 ## 4. Modelo de datos
 
@@ -62,7 +67,24 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 
 **User**: `id`, `name`, `email` (único, en minúsculas), `password_hash`, `status` (`active`, `invited`, `suspended`), `role_id`, `created_at`, `updated_at`, `password_changed_at`, `session_version`.
 
-**PasswordResetToken**: `id`, `user_id`, `token_hash` (SHA-256 del token), `expires_at`, `used_at`, `created_at`.
+**PasswordResetToken**: `id`, `user_id`, `token_hash` (SHA-256 del token), `expires_at`, `used_at`, `created_at`. Sirve para la recuperación de contraseña y para las invitaciones.
+
+**InvitationSend**: `id`, `user_id`, `sent_at`. Un registro por cada invitación enviada, para el límite diario.
+
+### Migraciones (Alembic)
+
+El esquema no se crea con `create_all`: lo crean y lo cambian las migraciones de `backend/migrations/versions/`, en cadena (cada una indica la anterior en `down_revision`). La base de datos guarda la última aplicada en la tabla `alembic_version`, y al arrancar la API ejecuta las pendientes (`alembic upgrade head`).
+
+- Para cambiar el esquema: edita `app/models.py`, ejecuta `npm run db:upgrade` y `npm run db:revision -- "mensaje"`, revisa el archivo generado y súbelo junto al cambio del modelo. Autogenerate no detecta los renombrados ni las migraciones de datos.
+- Los índices y restricciones tienen nombres fijos (`NAMING_CONVENTION` en `app/database.py`) para poder modificarlos después.
+- `0001` (esquema inicial) crea las cuatro tablas.
+
+### PostgreSQL
+
+- En desarrollo, PostgreSQL 18 corre en Docker (`docker-compose.yml`), publicado solo en `127.0.0.1:5433` (el 5432 lo usa el CRM). Los datos viven en el volumen `nodo-usuarios_datos-postgres`. Las credenciales del Compose son solo para desarrollo.
+- Hay dos bases de datos: `nodo` para la app y `nodo_test` para las pruebas. `tests/conftest.py` vacía `nodo_test` antes de cada prueba y se niega a usar una base cuyo nombre no acabe en `_test`.
+- Las pruebas, la CI (contenedor de servicio de GitHub Actions) y producción usan PostgreSQL: lo que pasa las pruebas se comporta igual en producción.
+- Las fechas son `timestamptz` y la sesión de la base de datos va en UTC, así que la API las devuelve en UTC (`2026-10-06T08:27:07Z`).
 
 Solo los usuarios `active` pueden iniciar sesión. Al arrancar por primera vez se crean tres roles:
 
@@ -78,15 +100,16 @@ Todas las rutas empiezan por `/api`. Salvo el login, todas exigen sesión (401 s
 
 | Método | Ruta | Permiso | Uso |
 | --- | --- | --- | --- |
-| `POST` | `/auth/login` | — | `{"email", "password"}`; crea la cookie de sesión. |
+| `POST` | `/auth/login` | — | `{"email", "password", "remember"?}`; crea la cookie de sesión (30 días con `remember: true`). |
 | `POST` | `/auth/logout` | — | Borra la cookie. |
 | `GET` | `/auth/me` | sesión | Usuario actual con su rol y permisos. |
 | `POST` | `/auth/forgot-password` | — | `{"email"}`; responde siempre 202 con el mismo mensaje. |
-| `POST` | `/auth/reset-password` | — | `{"token", "password"}`; 400 si el enlace no es válido o ha caducado. |
+| `POST` | `/auth/reset-password` | — | `{"token", "password"}`; recupera la contraseña o acepta una invitación (la cuenta pasa a `active`). 400 si el enlace no es válido o ha caducado. |
 | `GET` | `/users` | `users:read` | Lista de usuarios. |
 | `GET` | `/users/{id}` | `users:read` | Un usuario. |
-| `POST` | `/users` | `users:write` | `{"name", "email", "password", "role_id", "status"}`. |
-| `PATCH` | `/users/{id}` | `users:write` | Cualquier subconjunto de los campos anteriores; `password` es opcional. |
+| `POST` | `/users` | `users:write` | `{"name", "email", "role_id"}`; crea el usuario como `invited` y le envía la invitación por email. No acepta `password` ni `status`. |
+| `POST` | `/users/{id}/invitation` | `users:write` | Reenvía la invitación (202) y anula el enlace anterior; 409 si el usuario no está invitado y 429 si ya ha recibido 5 en 24 horas. |
+| `PATCH` | `/users/{id}` | `users:write` | Cualquier subconjunto de `{"name", "email", "role_id", "status", "password"}`. |
 | `DELETE` | `/users/{id}` | `users:write` | Elimina un usuario. |
 | `GET` | `/roles` | sesión | Lista de roles. |
 | `POST` | `/roles` | `roles:write` | `{"name", "description", "tone", "permissions"}`. |
@@ -100,33 +123,55 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
 
 - **Contraseñas**: hash Argon2id (`pwdlib`). Nunca se guardan en claro ni salen en las respuestas.
 - **Política**: entre 10 y 128 caracteres, con mayúscula, minúscula, número y símbolo. Se valida en el servidor; el formulario muestra los requisitos en vivo.
-- **Sesión**: JWT firmado con `SECRET_KEY`, caduca en 60 minutos (`TOKEN_MINUTES`). Va en una cookie `httpOnly` (JavaScript no puede leerla), `SameSite=Strict` y restringida a `/api`. En cada petición se recarga el usuario: si lo eliminan o lo suspenden, pierde el acceso al momento.
+- **Sesión**: JWT firmado con `SECRET_KEY`. Sin «Recordarme», la cookie es de sesión (el navegador la borra al cerrarse) y el token caduca en 60 minutos (`TOKEN_MINUTES`). Con «Recordarme en este equipo», cookie y token duran 30 días (`REMEMBER_DAYS`); el token lleva esa marca (`rem`) para conservarla cuando la cookie se renueva al cambiar tu propia contraseña. La app nunca guarda la contraseña: la recuerda, si quieres, el gestor de contraseñas del navegador (campos con `autocomplete="username"` y `"current-password"`). Va en una cookie `httpOnly` (JavaScript no puede leerla), `Secure` (solo viaja por HTTPS; `COOKIE_SECURE=true` por defecto), `SameSite=Strict` y restringida a `/api`. En cada petición se recarga el usuario: si lo eliminan o lo suspenden, pierde el acceso al momento.
 - **Login**: el mensaje es el mismo si el email no existe o la contraseña es incorrecta, y el tiempo de respuesta también. Tras 5 fallos en 15 minutos se bloquea esa combinación de email e IP.
 - **Recuperación de contraseña**:
   - `forgot-password` responde siempre lo mismo, exista o no el email, para no revelar qué cuentas hay.
   - Solo se envía el enlace a cuentas activas, como máximo 3 veces cada 15 minutos por email.
   - El token es aleatorio (256 bits) y en la base de datos solo se guarda su SHA-256.
-  - Caduca a los 30 minutos (`RESET_TOKEN_MINUTES`), es de un solo uso y pedir uno nuevo anula los anteriores.
+  - Caduca a los 30 minutos (`RESET_TOKEN_MINUTES`), es de un solo uso y pedir uno nuevo anula los anteriores. El enlace se marca como usado con una sola operación atómica: si llegan dos peticiones a la vez con el mismo enlace, solo una lo consigue.
   - Va en el fragmento de la URL (`#token=…`): el navegador no lo envía al servidor ni en el `Referer`, y la interfaz lo borra de la barra de direcciones al abrir la página.
   - Al cambiar la contraseña, por recuperación o desde el panel, se incrementa `session_version` y se cierran todas las sesiones abiertas de ese usuario.
+  - Los enlaces pendientes (de recuperación o de invitación) se anulan si cambia la contraseña, si se suspende la cuenta o si cambia el email, porque se enviaron a la dirección anterior.
+- **Alta por invitación**:
+  - El administrador nunca conoce ni elige la contraseña de otra persona: el usuario se crea como `invited`, con una contraseña aleatoria que nadie conoce, y recibe un enlace para elegir la suya.
+  - El enlace usa el mismo mecanismo que la recuperación (token de 256 bits, solo se guarda el SHA-256, un solo uso, en el fragmento de la URL), pero va a `/aceptar-invitacion` y caduca a las 24 horas (`INVITE_TOKEN_HOURS`).
+  - Al aceptarla, la cuenta pasa a `active`. Reenviarla anula el enlace anterior.
+  - Cada usuario puede recibir como máximo 5 invitaciones (alta + reenvíos) en 24 horas (`INVITE_MAX_PER_DAY`). El límite se guarda en la base de datos (`invitation_sends`), así que sobrevive a los reinicios, y se borra al eliminar el usuario. Un usuario suspendido no puede aceptarla y un invitado no puede pedir el enlace de recuperación.
 - **Entrada estricta**: se rechazan los campos desconocidos, así que no se puede enviar `password_hash`, `id` ni fechas.
 - **Emails únicos**: se normalizan a minúsculas, y una restricción `UNIQUE` en la base de datos cubre las altas simultáneas.
 - **Integridad**: no puedes eliminarte ni desactivarte, no se borran roles asignados y siempre debe quedar un usuario activo con `users:write` y `roles:write`.
-- **Cabeceras**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Cache-Control: no-store` en la API.
+- **Cabeceras**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Cache-Control: no-store` en la API. En producción, Caddy añade HSTS y una política de contenido (CSP) que solo permite recursos propios y la fuente de Google Fonts. HSTS no se envía en desarrollo: en `localhost` obligaría a usar HTTPS en todas las apps locales.
 
-Correo: sin `SMTP_HOST`, el enlace de recuperación se escribe en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.
+Correo: sin `SMTP_HOST`, los enlaces de recuperación y de invitación se escriben en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.
 
-Límites conocidos: el bloqueo de intentos vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias). Para producción, sirve todo por HTTPS con `COOKIE_SECURE=true` y usa migraciones (Alembic) en lugar de `create_all`.
+Límites conocidos: el bloqueo de intentos de login y de recuperación vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias); el límite de invitaciones, en cambio, está en la base de datos. La API aplica las migraciones al arrancar, lo que es cómodo en desarrollo; con varios procesos (`--workers`) todos intentarían migrar y crear la semilla a la vez. Por eso la imagen de producción arranca un solo proceso; si algún día hacen falta varios, ejecuta antes `alembic upgrade head` como paso aparte del despliegue y lleva los límites de intentos a la base de datos.
+
+### Despliegue en producción
+
+`docker-compose.produccion.yml` levanta tres contenedores. Solo Caddy publica puertos:
+
+| Servicio | Qué hace |
+| --- | --- |
+| `web` | Caddy con el front-end compilado (`docker/produccion/web.Dockerfile`). Pide y renueva solo el certificado de Let's Encrypt para `DOMINIO`, redirige HTTP a HTTPS, añade HSTS y CSP, y pasa `/api` a la API. |
+| `api` | FastAPI (`backend/Dockerfile`), con un usuario sin privilegios y `--proxy-headers` para recibir la IP real del visitante desde Caddy (el bloqueo de intentos va por email + IP). |
+| `db` | PostgreSQL 18, sin puertos publicados. |
+
+La configuración y los secretos van en `.env.produccion` (plantilla en `.env.produccion.example`; no se sube). Los `.dockerignore` solo dejan entrar en las imágenes lo necesario: nunca `.env`, `.venv` ni pruebas.
 
 ## 7. Comandos
 
 | Comando | Qué hace |
 | --- | --- |
-| `npm start` | Arranca la API y Vite a la vez en un solo terminal. |
+| `npm start` | Arranca PostgreSQL (si no lo está), la API y Vite a la vez en un solo terminal. |
+| `npm run db:start` / `npm run db:stop` | Arranca o detiene el PostgreSQL de Docker. |
 | `npm run api` | Arranca FastAPI con recarga automática en el puerto 8000. |
-| `npm run dev` | Arranca Vite en el puerto 5173. |
+| `npm run dev` | Arranca Vite en `https://localhost:5173`. |
 | `npm run test:api` | Ejecuta las pruebas del backend. |
+| `npm run db:upgrade` | Aplica las migraciones pendientes (`alembic upgrade head`). |
+| `npm run db:revision -- "mensaje"` | Genera una migración nueva comparando los modelos con la base de datos. |
 | `npm test` | Ejecuta las pruebas del front-end (Vitest) y las repite al guardar; `npx vitest run` para una sola pasada. |
 | `npm run lint` / `npm run build` | Análisis estático y compilación del front-end. |
+| `npm run audit` | Busca vulnerabilidades conocidas en las dependencias (`npm audit` y `pip-audit`). |
 
-Para empezar con una base de datos vacía, detén la API y borra `backend/nodo.db`; al arrancar de nuevo se crean los roles y el administrador de `.env`.
+Para empezar con una base de datos vacía, detén la API y ejecuta `docker compose down -v` (borra el volumen con todos los datos); `npm start` la crea de nuevo, aplica todas las migraciones y crea los roles y el administrador de `.env`.

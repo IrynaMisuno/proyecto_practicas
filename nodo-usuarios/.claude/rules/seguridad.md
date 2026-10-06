@@ -5,7 +5,7 @@ Referencias: OWASP ASVS 5.0 (capítulos de autenticación, sesión, control de a
 ## Autorización
 - Cada endpoint nuevo exige sesión (`CurrentUser`) o un permiso (`require_permission("recurso:accion")`). Solo son públicos el login y la recuperación de contraseña.
 - Ocultar un botón en la interfaz no protege nada: la API debe devolver 403 por sí misma.
-- Permisos nuevos: añádelos al catálogo en `app/models.py`, al tipo `Permission` en `src/types.ts` y a los roles por defecto de `app/seed.py` si procede.
+- Permisos nuevos: añádelos al catálogo en `app/models.py`, al tipo `Permission` en `frontend/types.ts` y a los roles por defecto de `app/seed.py` si procede.
 - Respeta las reglas de integridad: no eliminarse ni desactivarse uno mismo, no borrar roles asignados y que siempre quede un administrador activo (`app/rules.py`).
 
 ## Datos de entrada y salida
@@ -16,7 +16,7 @@ Referencias: OWASP ASVS 5.0 (capítulos de autenticación, sesión, control de a
 
 ## Contraseñas y sesión
 - Hash solo con `hash_password` / `verify_password` (Argon2id, `app/security.py`). Nunca guardes ni registres contraseñas en claro.
-- La política (10–128 caracteres, mayúscula, minúscula, número y símbolo) vive en `backend/app/schemas.py` y se replica en `src/components/PasswordChecklist.tsx`. Cambia ambas a la vez.
+- La política (10–128 caracteres, mayúscula, minúscula, número y símbolo) vive en `backend/app/schemas.py` y se replica en `frontend/components/PasswordChecklist.tsx`. Cambia ambas a la vez.
 - NIST SP 800-63B desaconseja las reglas de composición (obligar a mayúscula, número o símbolo) y recomienda más longitud y comprobar contraseñas filtradas. La política actual no lo sigue; no la cambies sin que la usuaria lo decida.
 - Al cambiar una contraseña llama a `user.password_changed()` (`app/models.py`): incrementa `session_version` y cierra las sesiones abiertas. Un usuario que no esté `active` pierde el acceso en su siguiente petición (`get_current_user`).
 - La cookie de sesión es `httpOnly`, `SameSite=Strict` y con path `/api`. No guardes tokens en `localStorage` ni los leas desde JavaScript.
@@ -25,15 +25,15 @@ Referencias: OWASP ASVS 5.0 (capítulos de autenticación, sesión, control de a
 ## Datos personales (RGPD + LOPDGDD)
 - Nombre y email son datos personales: guarda solo los campos necesarios y justifica cualquier campo personal nuevo.
 - Borrar un usuario debe eliminar también sus datos asociados (p. ej. `PasswordResetToken`), no solo ocultarlo.
-- No escribas emails ni nombres en los logs, salvo el enlace de recuperación en desarrollo (`mailer.py` sin SMTP).
+- No escribas emails ni nombres en los logs, salvo los enlaces de recuperación e invitación en desarrollo (`mailer.py` sin SMTP).
 
 ## Secretos (Twelve-Factor: configuración en el entorno)
-- Los secretos solo van en `backend/.env`. Cada variable nueva va también en `.env.example`, con un valor de ejemplo, y en `app/config.py`.
+- Los secretos solo van en `backend/.env` (desarrollo) y en `.env.produccion` (producción). Cada variable nueva va también en `backend/.env.example` y, si hace falta en producción, en `.env.produccion.example`, con un valor de ejemplo, y en `app/config.py`.
 - No uses credenciales reales en pruebas ni en ejemplos; usa `@example.com`.
 - No escribas secretos, tokens ni contraseñas en logs, mensajes de error ni commits.
 
 ## Front-end
 - No uses `dangerouslySetInnerHTML` ni construyas HTML con cadenas.
-- Las peticiones HTTP pasan siempre por `request()` de `src/data.ts` (`credentials: "same-origin"`, manejo del 401 y de `ApiError`). Los componentes no importan `data.ts`: usan los hooks de `src/hooks/`.
+- Las peticiones HTTP pasan siempre por `request()` de `frontend/data.ts` (`credentials: "same-origin"`, manejo del 401 y de `ApiError`). Los componentes no importan `data.ts`: usan los hooks de `frontend/hooks/`.
 - Codifica los ids en las URLs con `encodeURIComponent`.
-- Producción: HTTPS y `COOKIE_SECURE=true`.
+- HTTPS en todos los entornos y `COOKIE_SECURE=true` por defecto; no lo desactives. HSTS y CSP los añade Caddy en producción (`docker/produccion/Caddyfile`): si cargas un recurso externo nuevo, añádelo a la CSP.

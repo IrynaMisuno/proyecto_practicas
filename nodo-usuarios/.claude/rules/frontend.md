@@ -1,44 +1,44 @@
 ---
 paths:
-  - "src/**/*.{ts,tsx}"
+  - "frontend/**/*.{ts,tsx}"
   - "index.html"
-  - "src/styles.css"
+  - "frontend/styles.css"
 ---
 
 # Front-end (React + TypeScript + Tailwind)
 
 ## TypeScript
-- Modo estricto, con `noUnusedLocals` y `noUnusedParameters`. Evita `any`; para datos externos usa `unknown` y compruébalos, como en `request()` de `src/data.ts`.
+- Modo estricto, con `noUnusedLocals` y `noUnusedParameters`. Evita `any`; para datos externos usa `unknown` y compruébalos, como en `request()` de `frontend/data.ts`.
 - Importa los tipos con `import type` (`verbatimModuleSyntax` está activo).
-- Los tipos de la API van en `src/types.ts` y deben coincidir con los modelos `...Out` de `backend/app/schemas.py`.
+- Los tipos de la API van en `frontend/types.ts` y deben coincidir con los modelos `...Out` de `backend/app/schemas.py`.
 
 ## Componentes
-- Componentes funcionales, uno por archivo en `src/components/`.
+- Componentes funcionales, uno por archivo en `frontend/components/`.
 - Lo más atómicos posible: cada componente hace una sola cosa y recibe por props lo que necesita. Si un trozo de JSX se repite o un componente crece demasiado, extráelo a una pieza reutilizable en lugar de copiarlo.
-- Los componentes de UI (piezas genéricas sin lógica de negocio ni llamadas a la API: botones, campos, modales, insignias…) se crean en `src/components/ui/`, uno por archivo, y se exportan desde `src/components/ui/index.ts`. Impórtalos siempre desde ahí (`import { Modal } from "./ui"`), nunca desde el archivo concreto.
-- Antes de crear una pieza nueva, reutiliza las que ya hay: `Avatar`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, `Logo`, `Modal`, `PageHeader`, `RoleBadge`, `StatusBadge`, `Toast` y los estilos `buttonStyles`, `inputStyles`, `linkStyles` y `toneStyles`.
+- Los componentes de UI (piezas genéricas sin lógica de negocio ni llamadas a la API: botones, campos, modales, insignias…) se crean en `frontend/components/ui/`, uno por archivo, y se exportan desde `frontend/components/ui/index.ts`. Impórtalos siempre desde ahí (`import { Modal } from "./ui"`), nunca desde el archivo concreto.
+- Antes de crear una pieza nueva, reutiliza las que ya hay: `Avatar`, `ConfirmDialog`, `Field`, `FilterChip`, `FormError`, `IconButton`, `Logo`, `Modal`, `PageHeader`, `RoleBadge`, `StatusBadge`, `Toast` y los estilos `buttonStyles`, `inputStyles`, `linkStyles` y `toneStyles`.
 - Botones que solo tienen icono: usa `IconButton`, que obliga a dar un `label` accesible.
-- Usa `can("permiso")` de `useAuth` (`src/hooks/useAuth.tsx`) para ocultar lo que el rol no permite.
-- Fechas, iniciales, nombres de estado y orden por nombre: `src/format.ts` (`formatDate`, `getInitials`, `statusLabels`, `compareByName`).
+- Usa `can("permiso")` de `useAuth` (`frontend/hooks/useAuth.tsx`) para ocultar lo que el rol no permite.
+- Fechas, iniciales, nombres de estado y orden por nombre: `frontend/format.ts` (`formatDate`, `getInitials`, `statusLabels`, `compareByName`).
 
 ## Llamadas a la API
-- Los componentes llaman a la API a través de hooks reutilizables en `src/hooks/` (`useUsers`, `useRoles`…), uno por archivo. Cada hook devuelve los datos, el error y sus operaciones (`reload`, `createUser`…). La sesión está en `useAuth` (con su `AuthProvider`).
-- `src/data.ts` sigue siendo el único sitio que hace `fetch` (ver `seguridad.md`): los hooks usan sus funciones y los componentes no lo importan.
-- Los errores llegan como `ApiError` (`src/errors.ts`, que los componentes sí pueden importar). Usa `errorMessage(caught, textoPorDefecto)` para el mensaje. Muestra `error.fields[campo]` junto a cada campo y `error.message` con `FormError`.
+- Los componentes llaman a la API a través de hooks reutilizables en `frontend/hooks/` (`useUsers`, `useRoles`…), uno por archivo. Cada hook devuelve los datos, el error y sus operaciones (`reload`, `createUser`…). La sesión está en `useAuth` (con su `AuthProvider`).
+- `frontend/data.ts` sigue siendo el único sitio que hace `fetch` (ver `seguridad.md`): los hooks usan sus funciones y los componentes no lo importan.
+- Los errores llegan como `ApiError` (`frontend/errors.ts`, que los componentes sí pueden importar). Usa `errorMessage(caught, textoPorDefecto)` para el mensaje. Muestra `error.fields[campo]` junto a cada campo y `error.message` con `FormError`.
 
 ## Pruebas
 - Cada componente tiene su propio test junto a él: `Componente.test.tsx`.
 - Con Vitest y React Testing Library: prueba lo que la persona ve y hace (busca por rol y texto accesible, p. ej. `getByRole`), no detalles internos.
 - Simula los hooks de la API en los tests; no hagas peticiones reales.
-- Simula un hook con `vi.mock("../hooks/useX")` y `vi.mocked(useX).mockReturnValue(...)`. Ejemplo: `src/components/Dashboard.test.tsx`.
+- Simula un hook con `vi.mock("../hooks/useX")` y `vi.mocked(useX).mockReturnValue(...)`. Ejemplo: `frontend/components/Dashboard.test.tsx`.
 - Interacciones con `userEvent` (`@testing-library/user-event`), no con `fireEvent`.
-- Datos de prueba compartidos en `src/test/fixtures.ts` (incluido `authValue()` para simular `useAuth`).
-- Configuración en `vite.config.ts` (entorno `jsdom`) y `src/test/setup.ts`.
+- Datos de prueba compartidos en `frontend/test-utils/fixtures.ts` (incluido `authValue()` para simular `useAuth`).
+- Configuración en `vite.config.ts` (entorno `jsdom`) y `frontend/test-utils/setup.ts`.
 
 ## Estilos
-- Tailwind CSS 4, integrado con el plugin `@tailwindcss/vite` (no hay `tailwind.config` ni PostCSS). Solo clases de utilidad. `src/styles.css` contiene únicamente el `@import`, el tema (`@theme`) y los estilos base; no añadas CSS propio.
+- Tailwind CSS 4, integrado con el plugin `@tailwindcss/vite` (no hay `tailwind.config` ni PostCSS). Solo clases de utilidad. `frontend/styles.css` contiene únicamente el `@import`, el tema (`@theme`) y los estilos base; no añadas CSS propio.
 - Diseño mobile-first: los estilos base son para móvil y se amplían con `sm:`, `md:`, `lg:`. Comprueba a 375 px de ancho.
-- Paleta: `slate` para neutros, `mint` (verde menta, definido en `@theme` de `src/styles.css`) para acciones principales y `rose` para errores y borrados. Texto blanco solo sobre `mint-700` o más oscuro; el botón principal es `mint-300` con texto `mint-950`.
+- Paleta: `slate` para neutros, `mint` (verde menta, definido en `@theme` de `frontend/styles.css`) para acciones principales y estados correctos (activo, éxito), `amber` para avisos y `rose` para errores y borrados. Texto blanco solo sobre `mint-700` o más oscuro; el botón principal es `mint-300` con texto `mint-950`.
 
 ## Textos
 - Toda la interfaz en español, con tuteo y en el tono de los textos actuales.

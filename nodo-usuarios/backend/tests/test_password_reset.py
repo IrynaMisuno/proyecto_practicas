@@ -1,9 +1,13 @@
+import logging
+import smtplib
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
+from app import mailer
+from app.config import get_settings
 from app.database import SessionLocal
 from app.models import PasswordResetToken
 from app.routers import auth
@@ -115,7 +119,7 @@ def test_requests_are_throttled_per_email(client: TestClient, outbox: list[dict]
 
 def test_admin_password_change_closes_that_users_sessions(admin: TestClient):
     create_user(admin, "sesion@example.com")
-    other = TestClient(admin.app)
+    other = TestClient(admin.app, base_url="https://testserver")
     assert login(other, "sesion@example.com", STRONG_PASSWORD).status_code == 200
     user_id = next(user["id"] for user in admin.get("/api/users").json() if user["email"] == "sesion@example.com")
     admin.patch(f"/api/users/{user_id}", json={"password": "Cambiada-Por-Admin-1"})
@@ -126,3 +130,25 @@ def test_changing_own_password_keeps_session(admin: TestClient):
     me = admin.get("/api/auth/me").json()
     assert admin.patch(f"/api/users/{me['id']}", json={"password": "Mi-Nueva-Clave-1"}).status_code == 200
     assert admin.get("/api/auth/me").status_code == 200
+
+
+def test_smtp_failure_is_logged_without_the_email(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    email = "persona@example.com"
+
+    def refuse(*_args, **_kwargs):
+        raise smtplib.SMTPRecipientsRefused({email: (550, b"Buzon no disponible")})
+
+    monkeypatch.setattr(get_settings(), "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(mailer.smtplib, "SMTP", refuse)
+    with caplog.at_level(logging.ERROR, logger="uvicorn.error"):
+        mailer.send_password_reset_email(email, "Persona", "http://localhost:5173/restablecer-contrasena#token=x")
+
+    assert "SMTPRecipientsRefused" in caplog.text
+    assert email not in caplog.text
+
+
+def test_changing_the_email_cancels_pending_reset_links(admin: TestClient, outbox: list[dict]):
+    user = create_user(admin, "antigua@example.com")
+    forgot(admin, "antigua@example.com")
+    assert admin.patch(f"/api/users/{user['id']}", json={"email": "nueva@example.com"}).status_code == 200
+    assert reset(admin, token_from(outbox[0])).status_code == 400

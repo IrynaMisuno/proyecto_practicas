@@ -1,16 +1,17 @@
+import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..deps import DbSession, require_permission
+from ..deps import DbSession, RememberedSession, require_permission
 from ..models import PasswordResetToken, Role, User
 from ..rules import ensure_admin_remains
-from ..schemas import UserCreate, UserOut, UserUpdate
+from ..schemas import MessageOut, UserCreate, UserOut, UserUpdate
 from ..security import hash_password
-from .auth import set_session_cookie
+from .auth import send_invitation, set_session_cookie
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -59,24 +60,35 @@ def get_user(user_id: str, db: DbSession, _: Reader) -> UserOut:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_user(payload: UserCreate, db: DbSession, _: Writer) -> UserOut:
+def create_user(payload: UserCreate, background: BackgroundTasks, db: DbSession, _: Writer) -> UserOut:
     ensure_role_exists(db, payload.role_id)
     ensure_email_available(db, payload.email)
     user = User(
         name=payload.name,
         email=payload.email,
-        password_hash=hash_password(payload.password),
+        # Contraseña aleatoria que nadie conoce: no se puede entrar hasta aceptar la invitación.
+        password_hash=hash_password(secrets.token_urlsafe(32)),
         role_id=payload.role_id,
-        status=payload.status,
+        status="invited",
     )
     db.add(user)
     commit_or_conflict(db)
+    send_invitation(db, user, background)
     db.refresh(user)
     return UserOut.model_validate(user)
 
 
+@router.post("/{user_id}/invitation", status_code=status.HTTP_202_ACCEPTED)
+def resend_invitation(user_id: str, background: BackgroundTasks, db: DbSession, _: Writer) -> MessageOut:
+    user = get_user_or_404(db, user_id)
+    if user.status != "invited":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Solo se puede reenviar la invitación a usuarios invitados.")
+    send_invitation(db, user, background)  # el enlace nuevo anula el anterior
+    return MessageOut(message="Invitación reenviada.")
+
+
 @router.patch("/{user_id}")
-def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSession, current: Writer) -> UserOut:
+def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSession, current: Writer, remembered: RememberedSession) -> UserOut:
     user = get_user_or_404(db, user_id)
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
 
@@ -89,8 +101,12 @@ def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSes
     password_changed = "password" in changes
     if password_changed:
         user.password_hash = hash_password(changes.pop("password"))
-        # Cierra sus sesiones abiertas y anula los enlaces de recuperación pendientes.
+        # Cierra sus sesiones abiertas.
         user.password_changed()
+    # Un enlace pendiente (recuperación o invitación) deja de valer si cambia la contraseña, si se
+    # suspende la cuenta o si cambia el email: se envió a la dirección anterior, quizá equivocada.
+    email_changed = changes.get("email", user.email) != user.email
+    if password_changed or email_changed or changes.get("status") == "suspended":
         db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
 
     for field, value in changes.items():
@@ -102,7 +118,7 @@ def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSes
     commit_or_conflict(db)
     db.refresh(user)
     if password_changed and user.id == current.id:
-        set_session_cookie(response, user)  # quien cambia su propia contraseña sigue dentro
+        set_session_cookie(response, user, remembered)  # quien cambia su propia contraseña sigue dentro
     return UserOut.model_validate(user)
 
 
