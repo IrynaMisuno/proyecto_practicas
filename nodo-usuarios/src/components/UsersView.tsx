@@ -38,7 +38,7 @@ export function UsersView({ users, roles, currentUserId, canWrite, onAdd, onEdit
 
       <UserStats users={users} />
 
-      <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div className="overflow-hidden rounded-xl bg-white shadow-xs ring-1 ring-slate-200">
         <UserFilters values={filters} roles={roles} onChange={setFilters} />
 
         <div className="overflow-x-auto">

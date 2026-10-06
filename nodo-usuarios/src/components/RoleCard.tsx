@@ -15,9 +15,9 @@ interface RoleCardProps {
 /** Tarjeta de un rol con sus permisos y los usuarios que lo tienen. */
 export function RoleCard({ role, permissionLabels, assigned, canWrite, onEdit, onDelete }: RoleCardProps) {
   return (
-    <li className="flex flex-col rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <li className="flex flex-col rounded-xl bg-white p-5 shadow-xs ring-1 ring-slate-200">
       <div className="flex items-start gap-3">
-        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-white ${toneStyles[role.tone].swatch}`}><ShieldCheck size={18} /></span>
+        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${toneStyles[role.tone].icon}`}><ShieldCheck size={18} /></span>
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold text-slate-900">{role.name}</h2>
           <p className="mt-0.5 text-sm text-slate-500">{role.description || "Sin descripción"}</p>

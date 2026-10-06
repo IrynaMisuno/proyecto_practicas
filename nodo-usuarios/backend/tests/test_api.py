@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.database import SessionLocal
-from app.models import User
+from app.database import SessionLocal, engine, upgrade_schema
+from app.models import Role, User
 
 from .conftest import ADMIN, STRONG_PASSWORD, create_user, role_id
 
@@ -196,6 +196,23 @@ def test_removing_admin_permissions_from_only_admin_role_is_blocked(admin: TestC
     roles = {role["name"]: role for role in admin.get("/api/roles").json()}
     assert "roles:write" in roles["Administrador"]["permissions"]
 
+
+
+def test_role_tones_use_the_mint_palette(admin: TestClient):
+    assert admin.post("/api/roles", json={"name": "Menta", "tone": "mint"}).json()["tone"] == "mint"
+    assert admin.post("/api/roles", json={"name": "Antiguo", "tone": "indigo"}).status_code == 422
+
+
+def test_upgrade_renames_old_role_tones(client: TestClient):
+    with SessionLocal() as db:
+        db.add_all([Role(name="Viejo índigo", tone="indigo"), Role(name="Viejo esmeralda", tone="emerald")])
+        db.commit()
+
+    upgrade_schema(engine)
+
+    with SessionLocal() as db:
+        tones = dict(db.execute(select(Role.name, Role.tone).where(Role.name.like("Viejo%"))).all())
+    assert tones == {"Viejo índigo": "violet", "Viejo esmeralda": "mint"}
 
 def test_dates_are_returned_with_timezone(admin: TestClient):
     user = create_user(admin, "fecha@example.com")

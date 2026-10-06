@@ -2,12 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Nodo: panel de administración de usuarios y roles. Front-end React 19 + TypeScript + Vite + Tailwind 3 en `src/`; API FastAPI + SQLAlchemy 2 + SQLite en `backend/`. Arquitectura, API y medidas de seguridad: `docs/guia-del-proyecto.md`.
+Nodo: panel de administración de usuarios y roles. Front-end React 19 + TypeScript + Vite + Tailwind 4 en `src/`; API FastAPI + SQLAlchemy 2 + SQLite en `backend/`. Arquitectura, API y medidas de seguridad: `docs/guia-del-proyecto.md`.
 
 Las normas de cada apartado están en `.claude/rules/` y se cargan solas según los archivos que se toquen.
 
 ## Comandos (desde `nodo-usuarios/`)
 
+- `npm start`: arranca la API y Vite a la vez en un solo terminal (`concurrently`).
 - `npm run api`: arranca FastAPI en `127.0.0.1:8000` (requiere `backend/.venv` y `backend/.env`).
 - `npm run dev`: arranca Vite en `localhost:5173`; redirige `/api` al backend (mismo origen, sin CORS).
 - `npm run test:api`: pytest del backend. Una prueba: `cd backend && .venv/bin/pytest tests/test_api.py -k nombre_prueba`.
@@ -35,11 +36,13 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 | ESLint + TypeScript estricto | `src/` | `.claude/rules/frontend.md` |
 | The Twelve-Factor App (configuración) | `backend/.env`, `app/config.py` | `.claude/rules/seguridad.md` (Secretos) |
 
-Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend, integración continua con GitHub Actions (lint + build + pytest) y auditoría de dependencias (`npm audit`, `pip-audit`).
+Integración continua: `.github/workflows/ci.yml` (en la raíz del repositorio) ejecuta lint, Vitest, build y pytest en cada push a `main` y en cada pull request.
+
+Pendiente, todavía sin hacer (no lo des por hecho): Ruff para el backend y auditoría de dependencias (`npm audit`, `pip-audit`).
 
 ## Verificación antes de dar un cambio por terminado
 
 1. `npm run test:api` si tocaste `backend/`.
 2. `npx vitest run`, `npm run lint` y `npm run build` si tocaste `src/`.
-3. Si es un cambio visible, probarlo con `npm run api` + `npm run dev`: con el administrador y con un rol sin permisos (Lector), a anchura de móvil y solo con teclado.
+3. Si es un cambio visible, probarlo con `npm start` (o `npm run api` + `npm run dev`): con el administrador y con un rol sin permisos (Lector), a anchura de móvil y solo con teclado.
 4. Di qué comprobaste y qué no.

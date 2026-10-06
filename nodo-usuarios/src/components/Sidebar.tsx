@@ -38,7 +38,7 @@ export function Sidebar({ sections, activeSection, currentUser, onSelect, onLogo
             type="button"
             aria-current={activeSection === item.id ? "page" : undefined}
             onClick={() => onSelect(item.id)}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeSection === item.id ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeSection === item.id ? "bg-mint-100 text-mint-800" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}
           >
             <item.icon size={18} />
             {item.label}

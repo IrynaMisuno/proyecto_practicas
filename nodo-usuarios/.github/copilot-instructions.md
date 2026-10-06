@@ -1,7 +1,7 @@
 # Instrucciones del proyecto
 
 - Aplicación: Nodo, panel de administración de usuarios y roles.
-- Front-end: React, TypeScript estricto, Vite y Tailwind CSS 3 (solo clases de utilidad; `src/styles.css` contiene únicamente directivas y base).
+- Front-end: React, TypeScript estricto, Vite y Tailwind CSS 4 (solo clases de utilidad; `src/styles.css` contiene únicamente el `@import`, el tema `@theme` y los estilos base).
 - Backend: FastAPI + SQLAlchemy + SQLite en `backend/`. Pruebas con `npm run test:api`.
 - Arranque: `npm run api` y `npm run dev` en terminales separados; comprobar con `npx vitest run`, `npm run lint`, `npm run build` y `npm run test:api`.
 - Toda validación y autorización se hace en el servidor; la interfaz solo la refleja. Cada endpoint nuevo debe usar `require_permission`.

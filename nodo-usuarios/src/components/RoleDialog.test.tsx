@@ -9,7 +9,7 @@ async function createAnalyst() {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText("Nombre"), " Analista ");
   await user.click(screen.getByRole("checkbox", { name: /Ver usuarios/ }));
-  await user.click(screen.getByRole("radio", { name: "Verde" }));
+  await user.click(screen.getByRole("radio", { name: "Menta" }));
   await user.click(screen.getByRole("button", { name: "Crear rol" }));
 }
 
@@ -20,7 +20,7 @@ describe("RoleDialog", () => {
 
     await createAnalyst();
 
-    expect(onSubmit).toHaveBeenCalledWith({ name: "Analista", description: "", tone: "emerald", permissions: ["users:read"] });
+    expect(onSubmit).toHaveBeenCalledWith({ name: "Analista", description: "", tone: "mint", permissions: ["users:read"] });
   });
 
   it("muestra en el campo nombre el conflicto por nombre repetido", async () => {

@@ -58,7 +58,7 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 
 ## 4. Modelo de datos
 
-**Role**: `id`, `name` (único), `description`, `tone` (color de la insignia), `permissions` (lista).
+**Role**: `id`, `name` (único), `description`, `tone` (color de la insignia: `slate`, `mint`, `sky`, `violet`, `amber` o `rose`), `permissions` (lista).
 
 **User**: `id`, `name`, `email` (único, en minúsculas), `password_hash`, `status` (`active`, `invited`, `suspended`), `role_id`, `created_at`, `updated_at`, `password_changed_at`, `session_version`.
 
@@ -122,6 +122,7 @@ Límites conocidos: el bloqueo de intentos vive en memoria (se reinicia con el p
 
 | Comando | Qué hace |
 | --- | --- |
+| `npm start` | Arranca la API y Vite a la vez en un solo terminal. |
 | `npm run api` | Arranca FastAPI con recarga automática en el puerto 8000. |
 | `npm run dev` | Arranca Vite en el puerto 5173. |
 | `npm run test:api` | Ejecuta las pruebas del backend. |

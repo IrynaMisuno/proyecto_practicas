@@ -29,7 +29,7 @@ export function Modal({ title, description, onClose, children, size = "md" }: Mo
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 backdrop-blur-sm sm:items-center" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 backdrop-blur-xs sm:items-center" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="modal-title" className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-900/5 ${size === "sm" ? "max-w-md" : "max-w-lg"}`}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
