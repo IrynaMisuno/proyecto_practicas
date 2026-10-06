@@ -2,7 +2,7 @@
 
 ## 1. Propósito
 
-Nodo es un panel de administración de usuarios. Un usuario inicia sesión con su email y contraseña y, según los permisos de su rol, puede consultar o gestionar usuarios y roles. Los datos se guardan en una base de datos SQLite a través de una API FastAPI.
+Nodo es un panel de administración de usuarios. Un usuario inicia sesión con su email y contraseña y, según los permisos de su rol, puede consultar o gestionar usuarios y roles. Los datos se guardan en una base de datos SQLite a través de una API FastAPI, con SQLAlchemy como ORM y Alembic para las migraciones del esquema.
 
 ## 2. Arquitectura
 
@@ -18,9 +18,9 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 
 | Ruta | Responsabilidad |
 | --- | --- |
-| `app/main.py` | Crea la app, registra los routers bajo `/api`, crea las tablas, carga la semilla, traduce errores a `{"error", "fields"}` y añade cabeceras de seguridad. |
+| `app/main.py` | Crea la app, registra los routers bajo `/api`, aplica las migraciones, carga la semilla, traduce errores a `{"error", "fields"}` y añade cabeceras de seguridad. |
 | `app/config.py` | Configuración desde `.env` (pydantic-settings). |
-| `app/database.py` | Motor SQLAlchemy, sesiones y claves foráneas activadas en SQLite. |
+| `app/database.py` | Motor SQLAlchemy, sesiones, claves foráneas activadas en SQLite, convención de nombres de restricciones y `run_migrations` (Alembic al arrancar). |
 | `app/models.py` | Tablas `roles` y `users` y catálogo de permisos. |
 | `app/schemas.py` | Validación de entrada (política de contraseña, email, permisos) y modelos de salida sin datos sensibles. |
 | `app/security.py` | Hash Argon2id, JWT, tokens de recuperación y límites de intentos. |
@@ -29,7 +29,8 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | `app/rules.py` | Regla «siempre debe quedar un administrador activo». |
 | `app/seed.py` | Roles por defecto y primer administrador desde `.env`. |
 | `app/routers/` | Endpoints de autenticación, usuarios y roles. |
-| `tests/` | Pruebas con pytest y una base de datos temporal. |
+| `alembic.ini`, `migrations/` | Configuración de Alembic; `migrations/env.py` toma la URL de `.env` y los modelos de `app/models.py`. Cada cambio del esquema es un archivo en `migrations/versions/`. |
+| `tests/` | Pruebas con pytest y una base de datos temporal; `test_migrations.py` comprueba que las migraciones coinciden con los modelos. |
 
 ### Front-end (`frontend/`)
 
@@ -66,6 +67,15 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 **PasswordResetToken**: `id`, `user_id`, `token_hash` (SHA-256 del token), `expires_at`, `used_at`, `created_at`. Sirve para la recuperación de contraseña y para las invitaciones.
 
 **InvitationSend**: `id`, `user_id`, `sent_at`. Un registro por cada invitación enviada, para el límite diario.
+
+### Migraciones (Alembic)
+
+El esquema no se crea con `create_all`: lo crean y lo cambian las migraciones de `backend/migrations/versions/`, en cadena (cada una indica la anterior en `down_revision`). La base de datos guarda la última aplicada en la tabla `alembic_version`, y al arrancar la API ejecuta las pendientes (`alembic upgrade head`).
+
+- Para cambiar el esquema: edita `app/models.py`, ejecuta `npm run db:upgrade` y `npm run db:revision -- "mensaje"`, revisa el archivo generado y súbelo junto al cambio del modelo. Autogenerate no detecta los renombrados ni las migraciones de datos.
+- Las migraciones usan el modo batch de Alembic, que recrea la tabla, porque SQLite casi no admite `ALTER TABLE`. Los índices y restricciones tienen nombres fijos (`NAMING_CONVENTION` en `app/database.py`) para poder modificarlos después.
+- `0001` (esquema inicial) contiene las cuatro tablas tal como estaban antes de usar Alembic.
+- Una base de datos creada antes de Alembic (sin `alembic_version`) se convierte sola la primera vez: se guarda una copia en `nodo-antes-de-alembic.db`, se recrean las tablas con la migración `0001` y se copian los datos, todo en una sola transacción. Si algo falla, la base de datos queda como estaba.
 
 Solo los usuarios `active` pueden iniciar sesión. Al arrancar por primera vez se crean tres roles:
 
@@ -126,7 +136,7 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
 
 Correo: sin `SMTP_HOST`, los enlaces de recuperación y de invitación se escriben en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.
 
-Límites conocidos: el bloqueo de intentos de login y de recuperación vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias); el límite de invitaciones, en cambio, está en la base de datos. El primer arranque sobre una base de datos vacía debe hacerse con un solo proceso: con varios (`--workers`), todos intentan crear las tablas y la semilla a la vez y fallan. Para producción, sirve todo por HTTPS con `COOKIE_SECURE=true` y usa migraciones (Alembic) en lugar de `create_all`.
+Límites conocidos: el bloqueo de intentos de login y de recuperación vive en memoria (se reinicia con el proceso y no se comparte entre varias instancias); el límite de invitaciones, en cambio, está en la base de datos. La API aplica las migraciones al arrancar, lo que es cómodo en desarrollo; con varios procesos (`--workers`) todos intentarían migrar y crear la semilla a la vez. En producción, ejecuta `alembic upgrade head` como paso previo del despliegue, con un solo proceso, y después arranca los workers. Sirve todo por HTTPS con `COOKIE_SECURE=true`.
 
 ## 7. Comandos
 
@@ -136,7 +146,9 @@ Límites conocidos: el bloqueo de intentos de login y de recuperación vive en m
 | `npm run api` | Arranca FastAPI con recarga automática en el puerto 8000. |
 | `npm run dev` | Arranca Vite en el puerto 5173. |
 | `npm run test:api` | Ejecuta las pruebas del backend. |
+| `npm run db:upgrade` | Aplica las migraciones pendientes (`alembic upgrade head`). |
+| `npm run db:revision -- "mensaje"` | Genera una migración nueva comparando los modelos con la base de datos. |
 | `npm test` | Ejecuta las pruebas del front-end (Vitest) y las repite al guardar; `npx vitest run` para una sola pasada. |
 | `npm run lint` / `npm run build` | Análisis estático y compilación del front-end. |
 
-Para empezar con una base de datos vacía, detén la API y borra `backend/nodo.db`; al arrancar de nuevo se crean los roles y el administrador de `.env`.
+Para empezar con una base de datos vacía, detén la API y borra `backend/nodo.db`; al arrancar de nuevo se aplican todas las migraciones y se crean los roles y el administrador de `.env`.

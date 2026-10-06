@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Nodo: panel de administración de usuarios y roles. Front-end React 19 + TypeScript + Vite + Tailwind 4 en `frontend/`; API FastAPI + SQLAlchemy 2 + SQLite en `backend/`. Arquitectura, API y medidas de seguridad: `docs/guia-del-proyecto.md`.
+Nodo: panel de administración de usuarios y roles. Front-end React 19 + TypeScript + Vite + Tailwind 4 en `frontend/`; API FastAPI + SQLAlchemy 2 + Alembic + SQLite en `backend/`. Arquitectura, API y medidas de seguridad: `docs/guia-del-proyecto.md`.
 
 Las normas de cada apartado están en `.claude/rules/` y se cargan solas según los archivos que se toquen.
 
@@ -12,6 +12,8 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 - `npm run api`: arranca FastAPI en `127.0.0.1:8000` (requiere `backend/.venv` y `backend/.env`).
 - `npm run dev`: arranca Vite en `localhost:5173`; redirige `/api` al backend (mismo origen, sin CORS).
 - `npm run test:api`: pytest del backend. Una prueba: `cd backend && .venv/bin/pytest tests/test_api.py -k nombre_prueba`.
+- `npm run db:upgrade`: aplica las migraciones pendientes (`alembic upgrade head`). La API también lo hace al arrancar.
+- `npm run db:revision -- "mensaje"`: genera una migración en `backend/migrations/versions/` comparando `models.py` con la base de datos (ejecuta antes `db:upgrade`). Revísala siempre.
 - `npm test`: Vitest del front-end en modo vigilancia (`npx vitest run` para una sola pasada). Un archivo: `npx vitest run frontend/components/PasswordChecklist.test.tsx`.
 - `npm run lint` y `npm run build` (`tsc -b` + Vite).
 
@@ -19,6 +21,7 @@ Las normas de cada apartado están en `.claude/rules/` y se cargan solas según 
 
 - Todo en español: textos de la interfaz, mensajes de error de la API, comentarios y commits.
 - La validación y la autorización se hacen en el servidor; la interfaz solo las refleja.
+- Todo cambio en `backend/app/models.py` va con su migración de Alembic en el mismo commit; `tests/test_migrations.py` falla si falta.
 - Si cambias la API, el modelo de datos o una medida de seguridad, actualiza `docs/guia-del-proyecto.md` en el mismo cambio. Mantén coherente `.github/copilot-instructions.md`.
 - No subas `backend/.env`, `backend/nodo.db`, `dist/` ni `.pytest_cache/` (ya están en `.gitignore`).
 - Commits con Conventional Commits, con la descripción en español: `feat: añade filtro por rol`, `fix: …`, `docs: …`, `test: …`, `refactor: …`.

@@ -3,7 +3,7 @@
 Panel web para administrar usuarios y roles: inicio de sesión con email y contraseña, alta, edición y baja de usuarios, y roles con permisos.
 
 - **Front-end:** React 19 + TypeScript + Vite + Tailwind CSS 4
-- **Backend:** FastAPI + SQLAlchemy 2 + SQLite
+- **Backend:** FastAPI + SQLAlchemy 2 + Alembic (migraciones) + SQLite
 - **Seguridad:** contraseñas con Argon2id, sesión JWT en cookie httpOnly, permisos comprobados en el servidor
 
 Consulta la [guía del proyecto](docs/guia-del-proyecto.md) para conocer la arquitectura, la API y las medidas de seguridad.
@@ -37,7 +37,7 @@ Arranca la API (desde la raíz del proyecto):
 npm run api
 ```
 
-La API queda en `http://127.0.0.1:8000` y la documentación interactiva en `http://127.0.0.1:8000/docs`. La base de datos se guarda en `backend/nodo.db`.
+La API queda en `http://127.0.0.1:8000` y la documentación interactiva en `http://127.0.0.1:8000/docs`. La base de datos se guarda en `backend/nodo.db` y, al arrancar, la API le aplica las migraciones pendientes de Alembic.
 
 ### 2. Front-end
 
@@ -64,6 +64,22 @@ Al arrancar solo existe el administrador de `.env`. Para probar con un rol sin p
 Si el enlace caduca (24 horas), el administrador puede reenviarlo con el botón de la fila del usuario.
 
 No escribas contraseñas reales en el repositorio: las de prueba solo las conoces tú.
+
+## Migraciones de la base de datos
+
+El esquema se gestiona con [Alembic](https://alembic.sqlalchemy.org/). Las migraciones están en `backend/migrations/versions/` y la API aplica las pendientes al arrancar.
+
+Para cambiar el esquema:
+
+1. Edita los modelos en `backend/app/models.py`.
+2. `npm run db:upgrade` para tener la base de datos al día.
+3. `npm run db:revision -- "añade teléfono a usuarios"` genera la migración comparando los modelos con la base de datos.
+4. Revisa el archivo generado (Alembic no detecta los renombrados ni las migraciones de datos) y aplícalo con `npm run db:upgrade` o reiniciando la API.
+5. Sube el cambio del modelo y la migración en el mismo commit.
+
+Otros comandos, desde `backend/`: `.venv/bin/alembic current` (versión actual), `.venv/bin/alembic history` y `.venv/bin/alembic downgrade -1` (deshace la última).
+
+Si tu `nodo.db` se creó antes de usar Alembic, la primera vez que arranques la API la convierte sin perder datos y guarda una copia en `backend/nodo-antes-de-alembic.db`.
 
 ## Comprobaciones
 
