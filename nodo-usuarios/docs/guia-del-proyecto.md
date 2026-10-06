@@ -13,7 +13,7 @@ Producción:  navegador ──HTTPS──► Caddy (80/443) ──/api──► 
 
 Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la interfaz y la API comparten origen: la cookie de sesión funciona sin CORS y puede ser `SameSite=Strict`. En producción, Caddy cumple el mismo papel (ver «Despliegue en producción»).
 
-Todo va por HTTPS, también en desarrollo: Vite usa un certificado autofirmado (`@vitejs/plugin-basic-ssl`), así que la cookie `Secure` se comporta igual que en producción. La primera vez el navegador avisa de que el certificado no es de confianza; acéptalo para `localhost`.
+Todo va por HTTPS, también en desarrollo, así que la cookie `Secure` se comporta igual que en producción. Si existe `certs/localhost.pem` (`npm run certs`, con [mkcert](https://github.com/FiloSottile/mkcert)), Vite usa ese certificado, que el equipo reconoce como de confianza. Si no existe, usa uno autofirmado (`@vitejs/plugin-basic-ssl`) y el navegador avisa de que no puede verificarlo. Los certificados de `certs/` no se suben al repositorio.
 
 ## 3. Organización de archivos
 

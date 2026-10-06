@@ -50,7 +50,17 @@ npm install
 npm run dev
 ```
 
-Abre `https://localhost:5173` e inicia sesión con el administrador de `.env`. La primera vez el navegador avisa de que el certificado no es de confianza: es el autofirmado de desarrollo, acéptalo para `localhost`. Por `http://` no responde, porque la cookie de sesión solo viaja por HTTPS. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
+Abre `https://localhost:5173` e inicia sesión con el administrador de `.env`. Por `http://` no responde, porque la cookie de sesión solo viaja por HTTPS.
+
+**Certificado de confianza (recomendado, una sola vez por equipo).** Sin él, Vite usa un certificado autofirmado y el navegador avisa de que no puede verificarlo. Con [mkcert](https://github.com/FiloSottile/mkcert) el aviso desaparece:
+
+```bash
+sudo apt install mkcert libnss3-tools   # en macOS: brew install mkcert nss
+mkcert -install                          # crea una autoridad local y la registra como de confianza
+npm run certs                            # genera certs/localhost.pem (no se sube al repositorio)
+```
+
+Reinicia `npm start` y cierra y vuelve a abrir el navegador. Vite redirige `/api` al backend, así que la interfaz y la API comparten origen.
 
 **Atajo:** `npm start` arranca la API y el front-end a la vez en un solo terminal, con la salida de cada uno marcada como `[api]` y `[web]`. Ctrl+C detiene los dos.
 

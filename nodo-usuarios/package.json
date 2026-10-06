@@ -13,6 +13,7 @@
     "api": "cd backend && .venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
     "test:api": "cd backend && .venv/bin/pytest",
     "audit": "npm audit && cd backend && .venv/bin/pip-audit -r requirements.txt",
+    "certs": "mkdir -p certs && mkcert -cert-file certs/localhost.pem -key-file certs/localhost-key.pem localhost 127.0.0.1 ::1",
     "db:start": "docker compose up -d --wait db",
     "db:stop": "docker compose stop db",
     "db:upgrade": "cd backend && .venv/bin/alembic upgrade head",
