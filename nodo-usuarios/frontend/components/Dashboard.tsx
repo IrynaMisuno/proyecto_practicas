@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { ShieldCheck, Users } from "lucide-react";
-import { errorMessage } from "../errors";
+import { ApiError, errorMessage } from "../errors";
 import { useAuth } from "../hooks/useAuth";
 import { usePermissions } from "../hooks/usePermissions";
 import { useRoles } from "../hooks/useRoles";
@@ -61,7 +61,17 @@ export function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
 
   async function saveUser(draft: NewUserDraft | UserDraft, existing?: User) {
     if (existing) {
-      await updateUser(existing.id, draft);
+      try {
+        // Bloqueo optimista: si otro administrador lo ha guardado mientras tanto, la API responde 412
+        // en lugar de sobrescribir sus cambios.
+        await updateUser(existing.id, { ...draft, expected_updated_at: existing.updated_at });
+      } catch (caught) {
+        if (!(caught instanceof ApiError && caught.status === 412)) throw caught;
+        setDialog(null);
+        void reloadUsers();
+        announce(caught.message);
+        return;
+      }
       // Si me cambio a mí mismo el rol, mis permisos cambian.
       if (existing.id === currentUser.id) await refresh();
       announce("Usuario actualizado.");

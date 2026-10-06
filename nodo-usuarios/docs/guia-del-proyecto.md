@@ -109,7 +109,7 @@ Todas las rutas empiezan por `/api`. Salvo el login, todas exigen sesión (401 s
 | `GET` | `/users/{id}` | `users:read` | Un usuario. |
 | `POST` | `/users` | `users:write` | `{"name", "email", "role_id"}`; crea el usuario como `invited` y le envía la invitación por email. No acepta `password` ni `status`. |
 | `POST` | `/users/{id}/invitation` | `users:write` | Reenvía la invitación (202) y anula el enlace anterior; 409 si el usuario no está invitado y 429 si ya ha recibido 5 en 24 horas. |
-| `PATCH` | `/users/{id}` | `users:write` | Cualquier subconjunto de `{"name", "email", "role_id", "status", "password"}`. |
+| `PATCH` | `/users/{id}` | `users:write` | Cualquier subconjunto de `{"name", "email", "role_id", "status", "password"}`, más `expected_updated_at` opcional (el `updated_at` que tenía el usuario al abrir el formulario): si alguien lo ha cambiado desde entonces, responde 412 sin guardar nada. |
 | `DELETE` | `/users/{id}` | `users:write` | Elimina un usuario. |
 | `GET` | `/roles` | sesión | Lista de roles. |
 | `POST` | `/roles` | `roles:write` | `{"name", "description", "tone", "permissions"}`. |
@@ -117,7 +117,7 @@ Todas las rutas empiezan por `/api`. Salvo el login, todas exigen sesión (401 s
 | `DELETE` | `/roles/{id}` | `roles:write` | Elimina un rol sin usuarios asignados. |
 | `GET` | `/permissions` | sesión | Catálogo de permisos. |
 
-Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}}`. Los códigos son: 409 para email o nombre de rol repetido y para las reglas de integridad, 422 para datos no válidos y 429 cuando hay demasiados intentos de login.
+Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}}`. Los códigos son: 409 para email o nombre de rol repetido y para las reglas de integridad, 412 cuando otro administrador ha cambiado el usuario mientras lo editabas, 422 para datos no válidos y 429 cuando hay demasiados intentos de login.
 
 ## 6. Seguridad
 
@@ -141,6 +141,10 @@ Los errores tienen la forma `{"error": "mensaje", "fields": {"campo": "mensaje"}
 - **Entrada estricta**: se rechazan los campos desconocidos, así que no se puede enviar `password_hash`, `id` ni fechas.
 - **Emails únicos**: se normalizan a minúsculas, y una restricción `UNIQUE` en la base de datos cubre las altas simultáneas.
 - **Integridad**: no puedes eliminarte ni desactivarte, no se borran roles asignados y siempre debe quedar un usuario activo con `users:write` y `roles:write`.
+- **Cambios simultáneos**:
+  - No hay límite de administradores, pero siempre debe quedar al menos uno activo. Los cambios que pueden quitar administradores esperan su turno con un bloqueo de PostgreSQL (`pg_advisory_xact_lock` en `app/rules.py`): si dos se quitan el permiso el uno al otro a la vez, el segundo ve el cambio del primero y recibe 409.
+  - Editar un usuario bloquea su fila hasta guardar (`SELECT … FOR UPDATE`) y, con `expected_updated_at`, no sobrescribe los cambios de otro administrador (bloqueo optimista): la interfaz cierra el formulario, recarga la lista y avisa.
+  - Dos altas con el mismo email: la restricción `UNIQUE` deja pasar una y la otra recibe 409.
 - **Cabeceras**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Cache-Control: no-store` en la API. En producción, Caddy añade HSTS y una política de contenido (CSP) que solo permite recursos propios y la fuente de Google Fonts. HSTS no se envía en desarrollo: en `localhost` obligaría a usar HTTPS en todas las apps locales.
 
 Correo: sin `SMTP_HOST`, los enlaces de recuperación y de invitación se escriben en la consola del backend. En producción configura `SMTP_*` y `FRONTEND_URL`.

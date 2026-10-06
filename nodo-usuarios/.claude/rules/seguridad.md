@@ -6,7 +6,7 @@ Referencias: OWASP ASVS 5.0 (capítulos de autenticación, sesión, control de a
 - Cada endpoint nuevo exige sesión (`CurrentUser`) o un permiso (`require_permission("recurso:accion")`). Solo son públicos el login y la recuperación de contraseña.
 - Ocultar un botón en la interfaz no protege nada: la API debe devolver 403 por sí misma.
 - Permisos nuevos: añádelos al catálogo en `app/models.py`, al tipo `Permission` en `frontend/types.ts` y a los roles por defecto de `app/seed.py` si procede.
-- Respeta las reglas de integridad: no eliminarse ni desactivarse uno mismo, no borrar roles asignados y que siempre quede un administrador activo (`app/rules.py`).
+- Respeta las reglas de integridad: no eliminarse ni desactivarse uno mismo, no borrar roles asignados y que siempre quede un administrador activo (`app/rules.py`). Todo cambio que pueda quitar administradores debe llamar a `ensure_admin_remains`, que además los pone en fila con un bloqueo para que dos cambios simultáneos no dejen la app sin administradores.
 
 ## Datos de entrada y salida
 - Los esquemas de entrada heredan de `StrictModel` (`extra="forbid"`), con longitudes máximas y `Literal` para valores cerrados.

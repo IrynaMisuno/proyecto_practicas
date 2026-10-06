@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 
 from .models import PERMISSIONS
 
@@ -85,6 +85,9 @@ class UserUpdate(StrictModel):
     password: Password | None = None
     role_id: str | None = None
     status: UserStatus | None = None
+    # Bloqueo optimista: el `updated_at` del usuario cuando se abrió el formulario. Si alguien lo ha
+    # cambiado desde entonces, la API responde 412 en lugar de sobrescribir sus cambios.
+    expected_updated_at: AwareDatetime | None = None
 
 
 class RoleCreate(StrictModel):

@@ -21,8 +21,10 @@ Writer = Annotated[User, Depends(require_permission("users:write"))]
 DUPLICATE_EMAIL = "Ya existe un usuario con ese email."
 
 
-def get_user_or_404(db: Session, user_id: str) -> User:
-    user = db.get(User, user_id)
+def get_user_or_404(db: Session, user_id: str, for_update: bool = False) -> User:
+    # for_update bloquea la fila hasta el final de la transacción (otra edición del mismo usuario
+    # espera) y la vuelve a leer aunque ya estuviera cargada, p. ej. si te editas a ti mismo.
+    user = db.get(User, user_id, with_for_update={"of": User} if for_update else None, populate_existing=for_update)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
     return user
@@ -89,8 +91,14 @@ def resend_invitation(user_id: str, background: BackgroundTasks, db: DbSession, 
 
 @router.patch("/{user_id}")
 def update_user(user_id: str, payload: UserUpdate, response: Response, db: DbSession, current: Writer, remembered: RememberedSession) -> UserOut:
-    user = get_user_or_404(db, user_id)
+    user = get_user_or_404(db, user_id, for_update=True)
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    expected = changes.pop("expected_updated_at", None)
+    if expected is not None and expected != user.updated_at:
+        raise HTTPException(
+            status.HTTP_412_PRECONDITION_FAILED,
+            f"Otro administrador ha cambiado a {user.name} mientras lo editabas. Vuelve a abrirlo para ver sus cambios.",
+        )
 
     if user.id == current.id and changes.get("status", "active") != "active":
         raise HTTPException(status.HTTP_409_CONFLICT, "No puedes desactivar tu propia cuenta.")

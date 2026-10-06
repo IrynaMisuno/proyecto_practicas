@@ -42,4 +42,7 @@ export interface UserDraft extends NewUserDraft {
   password?: string;
 }
 
+/** Cambios de un usuario. `expected_updated_at`: su versión al abrir el formulario (bloqueo optimista; 412 si ha cambiado). */
+export type UserUpdate = Partial<UserDraft> & { expected_updated_at?: string };
+
 export type RoleDraft = Omit<Role, "id">;

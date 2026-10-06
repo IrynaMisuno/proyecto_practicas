@@ -121,4 +121,30 @@ describe("Dashboard", () => {
     expect(screen.getByLabelText("Buscar usuarios")).toHaveValue("");
     expect(screen.getByText("Mostrando 3 de 3")).toBeInTheDocument();
   });
+
+  it("envía la versión del usuario al guardar la edición", async () => {
+    const user = userEvent.setup();
+    const hook = mockUsers({ updateUser: vi.fn().mockResolvedValue(undefined) });
+    render(<Dashboard currentUser={currentAdmin} />);
+
+    await user.click(screen.getByRole("button", { name: "Editar a Luis Gómez" }));
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(hook.updateUser).toHaveBeenCalledWith(luis.id, expect.objectContaining({ expected_updated_at: luis.updated_at }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Usuario actualizado.");
+  });
+
+  it("si otro administrador lo cambió antes, cierra el diálogo, recarga la lista y lo avisa", async () => {
+    const user = userEvent.setup();
+    const message = "Otro administrador ha cambiado a Luis Gómez mientras lo editabas. Vuelve a abrirlo para ver sus cambios.";
+    const hook = mockUsers({ updateUser: vi.fn().mockRejectedValue(new ApiError(message, 412)) });
+    render(<Dashboard currentUser={currentAdmin} />);
+
+    await user.click(screen.getByRole("button", { name: "Editar a Luis Gómez" }));
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(message);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(hook.reload).toHaveBeenCalledOnce();
+  });
 });
