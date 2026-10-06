@@ -44,16 +44,17 @@ Vite sirve la interfaz y redirige `/api` al backend (`vite.config.ts`). Así la 
 | `hooks/useUsers.ts`, `useRoles.ts`, `usePermissions.ts` | Datos del panel y sus operaciones; llaman a `data.ts`. |
 | `hooks/useForgotPassword.ts`, `useResetPassword.ts` | Recuperación de contraseña (`/restablecer-contrasena`) y aceptación de invitaciones (`/aceptar-invitacion`). |
 | `hooks/useToast.ts` | Avisos temporales. |
-| `components/Dashboard.tsx` | Panel con sesión: secciones, carga de datos y diálogos. |
+| `components/Dashboard.tsx` | Panel con sesión: secciones, carga de datos y diálogos. Pulsar una sección del menú recarga sus datos y la deja sin filtros. |
 | `components/Sidebar.tsx` | Navegación y cierre de sesión. |
 | `components/UsersView.tsx` | Vista de usuarios: `UserStats`, `UserFilters` y una `UserRow` por usuario. |
+| `components/UserFilters.tsx` | Búsqueda y filtros por rol y estado; cada filtro aplicado se muestra con una cruz para quitarlo. |
 | `components/RolesView.tsx` | Vista de roles: una `RoleCard` por rol con sus permisos y usuarios asignados. |
 | `components/UserDialog.tsx`, `RoleDialog.tsx` | Formularios de alta y edición, con los errores del servidor junto a cada campo. |
 | `components/LoginPage.tsx` | Inicio de sesión con el enlace «¿Has olvidado tu contraseña?». |
 | `components/ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | Solicitud del enlace y elección de la contraseña nueva, o de la primera al aceptar una invitación. |
 | `components/PasswordChecklist.tsx` | Requisitos de contraseña en vivo; la misma política que el backend. |
 | `components/AuthShell.tsx`, `BackToLogin.tsx` | Marco común de las pantallas sin sesión. |
-| `components/ui/` | Piezas genéricas exportadas desde `index.ts`: `Modal`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, insignias, `Toast`, etc., y los estilos. |
+| `components/ui/` | Piezas genéricas exportadas desde `index.ts`: `Modal`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, `FilterChip`, insignias, `Toast`, etc., y los estilos. |
 | `test-utils/` | Configuración de Vitest y datos de prueba. Cada componente tiene su `*.test.tsx` al lado. |
 
 ## 4. Modelo de datos

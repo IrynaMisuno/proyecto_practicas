@@ -106,4 +106,19 @@ describe("Dashboard", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("Solo se puede reenviar la invitación a usuarios invitados.");
   });
+
+  it("al pulsar «Usuarios» recarga la lista y quita los filtros", async () => {
+    const user = userEvent.setup();
+    const hook = mockUsers();
+    render(<Dashboard currentUser={currentAdmin} />);
+
+    await user.type(screen.getByLabelText("Buscar usuarios"), "luis");
+    expect(screen.getByText("Mostrando 1 de 3")).toBeInTheDocument();
+
+    await user.click(within(screen.getByRole("navigation", { name: "Secciones" })).getByRole("button", { name: "Usuarios" }));
+
+    expect(hook.reload).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText("Buscar usuarios")).toHaveValue("");
+    expect(screen.getByText("Mostrando 3 de 3")).toBeInTheDocument();
+  });
 });

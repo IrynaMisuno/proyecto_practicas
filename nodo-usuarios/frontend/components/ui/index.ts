@@ -2,6 +2,7 @@
 export { Avatar } from "./Avatar";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { Field } from "./Field";
+export { FilterChip } from "./FilterChip";
 export { FormError } from "./FormError";
 export { IconButton } from "./IconButton";
 export { Logo } from "./Logo";

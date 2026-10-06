@@ -16,7 +16,7 @@ paths:
 - Componentes funcionales, uno por archivo en `frontend/components/`.
 - Lo más atómicos posible: cada componente hace una sola cosa y recibe por props lo que necesita. Si un trozo de JSX se repite o un componente crece demasiado, extráelo a una pieza reutilizable en lugar de copiarlo.
 - Los componentes de UI (piezas genéricas sin lógica de negocio ni llamadas a la API: botones, campos, modales, insignias…) se crean en `frontend/components/ui/`, uno por archivo, y se exportan desde `frontend/components/ui/index.ts`. Impórtalos siempre desde ahí (`import { Modal } from "./ui"`), nunca desde el archivo concreto.
-- Antes de crear una pieza nueva, reutiliza las que ya hay: `Avatar`, `ConfirmDialog`, `Field`, `FormError`, `IconButton`, `Logo`, `Modal`, `PageHeader`, `RoleBadge`, `StatusBadge`, `Toast` y los estilos `buttonStyles`, `inputStyles`, `linkStyles` y `toneStyles`.
+- Antes de crear una pieza nueva, reutiliza las que ya hay: `Avatar`, `ConfirmDialog`, `Field`, `FilterChip`, `FormError`, `IconButton`, `Logo`, `Modal`, `PageHeader`, `RoleBadge`, `StatusBadge`, `Toast` y los estilos `buttonStyles`, `inputStyles`, `linkStyles` y `toneStyles`.
 - Botones que solo tienen icono: usa `IconButton`, que obliga a dar un `label` accesible.
 - Usa `can("permiso")` de `useAuth` (`frontend/hooks/useAuth.tsx`) para ocultar lo que el rol no permite.
 - Fechas, iniciales, nombres de estado y orden por nombre: `frontend/format.ts` (`formatDate`, `getInitials`, `statusLabels`, `compareByName`).

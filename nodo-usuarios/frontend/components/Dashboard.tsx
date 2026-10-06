@@ -43,10 +43,20 @@ export function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
   const loadError = usersError || rolesError || permissionsError;
   const closeDialog = useCallback(() => setDialog(null), []);
 
-  function retry() {
+  // Al cambiar `viewVersion`, la vista se monta de nuevo y vuelve a su estado inicial (sin filtros).
+  const [viewVersion, setViewVersion] = useState(0);
+
+  function reloadData() {
     void reloadUsers();
     void reloadRoles();
     void reloadPermissions();
+  }
+
+  /** Pulsar una sección, aunque ya sea la activa, la recarga desde cero: datos nuevos y sin filtros. */
+  function openSection(next: Section) {
+    setSection(next);
+    setViewVersion((version) => version + 1);
+    reloadData();
   }
 
   async function saveUser(draft: NewUserDraft | UserDraft, existing?: User) {
@@ -85,19 +95,20 @@ export function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
 
   return (
     <div className="min-h-screen lg:flex">
-      <Sidebar sections={sections} activeSection={activeSection} currentUser={currentUser} onSelect={setSection} onLogout={() => void logout()} />
+      <Sidebar sections={sections} activeSection={activeSection} currentUser={currentUser} onSelect={openSection} onLogout={() => void logout()} />
 
       <main className="flex-1 px-4 py-8 sm:px-6 lg:ml-64 lg:px-10">
         <div className="mx-auto max-w-6xl space-y-6">
           {loadError && (
             <div className="flex items-center justify-between gap-4">
               <FormError message={loadError} />
-              <button type="button" className={buttonStyles.secondary} onClick={retry}>Reintentar</button>
+              <button type="button" className={buttonStyles.secondary} onClick={reloadData}>Reintentar</button>
             </div>
           )}
           {!activeSection && <p className="text-sm text-slate-500">Tu rol no tiene permisos para ver ninguna sección. Contacta con un administrador.</p>}
           {activeSection === "users" && users && (
             <UsersView
+              key={viewVersion}
               users={users}
               roles={roles}
               currentUserId={currentUser.id}
@@ -110,6 +121,7 @@ export function Dashboard({ currentUser }: { currentUser: CurrentUser }) {
           )}
           {activeSection === "roles" && (
             <RolesView
+              key={viewVersion}
               roles={roles}
               users={users}
               permissions={permissions}

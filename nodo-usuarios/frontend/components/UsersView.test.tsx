@@ -51,4 +51,17 @@ describe("UsersView", () => {
 
     expect(screen.queryByRole("button", { name: "Añadir usuario" })).not.toBeInTheDocument();
   });
+
+  it("quita un filtro con su cruz y vuelve a mostrar a todos", async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.selectOptions(screen.getByLabelText("Filtrar por rol"), "Lector");
+    expect(screen.getByText("Mostrando 2 de 3")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Quitar filtro Rol: Lector" }));
+
+    expect(screen.getByText("Mostrando 3 de 3")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filtrar por rol")).toHaveValue("all");
+  });
 });
